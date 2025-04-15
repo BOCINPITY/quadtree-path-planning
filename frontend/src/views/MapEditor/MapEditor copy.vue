@@ -75,7 +75,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import type { QTMapListItem, IComponentShapeType } from '@/@types/'
-import { componentShapeList } from '@/utils/consts'
+import { componentShapeList } from '@/utils/shapeIcons'
 import Konva from 'konva'
 import type { IFrame } from 'konva/lib/types'
 

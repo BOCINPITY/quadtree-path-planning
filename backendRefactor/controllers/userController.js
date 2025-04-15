@@ -25,9 +25,10 @@ const createUser = async (ctx) => {
 const getUsers = async (ctx) => {
     try {
         const users = await User.findAll({
-            attributes: ['id', 'name', 'email'] // Exclude password
+            attributes: ['id', 'name', 'email']
         });
-        ctx.body = users;
+
+        ctx.body = users
     } catch (error) {
         ctx.status = 500;
         ctx.body = { error: error.message };

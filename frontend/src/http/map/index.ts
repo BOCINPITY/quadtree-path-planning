@@ -35,9 +35,9 @@ interface MapDto {
 }
 
 export const createMap = (data: MapDto) => {
-  return request.post<MapData>('/qtmap', data)
+  return request.post<MapData>('/maps', data)
 }
 
 export const getMapList = () => {
-  return request.get<QTMapListItem[]>('/qtmap')
+  return request.get('/maps')
 }

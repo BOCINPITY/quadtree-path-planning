@@ -43,9 +43,15 @@
 
 <script setup lang="ts">
 import router from "@/router";
+import { useAuthStore } from "@/store/auth";
 
 const start = () => {
-  router.push("/SystemView");
+  const authStore = useAuthStore();
+  if (authStore.isAuthenticated) {
+    router.push("/system");
+  } else {
+    router.push("/login");
+  }
 };
 </script>
 

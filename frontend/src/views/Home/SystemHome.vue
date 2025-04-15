@@ -1,13 +1,13 @@
 <template>
   <div class="container">
-    <div class="left"><MapLoader /></div>
+    <div class="left"><MapUpload /></div>
     <el-divider direction="vertical" style="height: auto" />
     <div class="right"></div>
   </div>
 </template>
 
 <script setup lang="ts">
-import MapLoader from "./components/MapLoader.vue";
+import MapUpload from "./components/MapUpload.vue";
 </script>
 
 <style scoped>

@@ -35,7 +35,10 @@
         <el-button class="operation-item" type="primary" @click="saveObstacles"
           >保存并上传</el-button
         >
-        <el-button class="operation-item" type="success" @click="visualizeQuadTreeWithAnimation"
+        <el-button
+          class="operation-item"
+          type="success"
+          @click="visualizeQuadTreeWithAnimation"
           >四叉分割可视化</el-button
         >
       </div>
@@ -80,8 +83,9 @@
       <div class="current-element">
         <div class="name">
           {{
-            componentShapeList.filter((item) => item.type === selectedElement.type)[0]?.name
-              ? componentShapeList.filter((item) => item.type === selectedElement.type)[0]?.name
+            componentShapeList.filter((item: any) => item.type === selectedElement.type)[0]?.name
+              ? componentShapeList.filter((item: any) => item.type === selectedElement.type)[0]
+                  ?.name
               : '当前无选中障碍物'
           }}
         </div>
@@ -152,7 +156,7 @@
 <script setup lang="ts">
 import { ref, type Ref, onMounted } from 'vue'
 import type { RectangleConfig, CircleConfig, INode, QTMapListItem } from '@/@types/'
-import { componentShapeList } from '@/utils/consts'
+import { componentShapeList } from '@/utils/shapeIcons'
 import Konva from 'konva'
 
 import type { IFrame } from 'konva/lib/types'
@@ -165,7 +169,7 @@ const stageConfig = ref({
 const selectedMap = ref<string>('')
 onMounted(async () => {
   const res = await getMapList()
-  mapList.value = res.data
+  console.log(res)
 })
 //最小分割阈值
 const minThreshold = ref<number>(20)

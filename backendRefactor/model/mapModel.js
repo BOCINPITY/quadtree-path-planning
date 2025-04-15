@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../utils/db');
+const User = require('./userModel'); // Import the User model
 
 const Map = sequelize.define('Map', {
     id: {
@@ -30,6 +31,16 @@ const Map = sequelize.define('Map', {
     obstacles: {
         type: DataTypes.JSON, // Store array of objects as JSON
         allowNull: false,
+    },
+    userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: User, // Reference the User model
+            key: 'id',
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'CASCADE',
     },
 }, {
     timestamps: true, // Ensure timestamps are enabled

@@ -4,13 +4,16 @@
       <img src="./assets/logo.png" alt="logo" />
       <span>基于四叉树的路径规划演示系统</span>
     </div>
+    <UserInfo />
   </el-header>
   <div style="height: 60px"></div>
   <main>
     <RouterView />
   </main>
 </template>
-<script lang="ts" setup></script>
+<script lang="ts" setup>
+import UserInfo from "./components/UserInfo.vue";
+</script>
 <style scoped>
 .el-header {
   position: fixed;

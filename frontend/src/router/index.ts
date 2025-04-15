@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/store/auth'
 
 import Index from '@/views/index.vue'
 const router = createRouter({
@@ -9,7 +10,7 @@ const router = createRouter({
       component: Index,
     },
     {
-      path: '/SystemView',
+      path: '/system',
       component: () => import('@/views/Layout/Layout.vue'),
       children: [
         {
@@ -22,7 +23,26 @@ const router = createRouter({
         },
       ],
     },
+    {
+      path: '/login',
+      component: () => import('@/views/Login/index.vue'),
+    },
   ],
+})
+
+router.beforeEach((to, from, next) => {
+  const authStore = useAuthStore()
+  const isAuthenticated = authStore.isAuthenticated
+
+  // Public routes that don't require authentication
+  const publicRoutes = ['/', '/login']
+
+  if (!publicRoutes.includes(to.path) && !isAuthenticated) {
+    // Redirect to login if not authenticated
+    next('/login')
+  } else {
+    next()
+  }
 })
 
 export default router
