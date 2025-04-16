@@ -15,7 +15,11 @@
       </div>
       <div class="title">我的云端地图</div>
       <div class="map-list">
-        <el-select v-model="selectedMap" placeholder="请选择地图" @change="handleSelectMapChange">
+        <el-select
+          v-model="selectedMap"
+          placeholder="请选择地图"
+          @change="handleSelectMapChange"
+        >
           <el-option
             v-for="item in mapList"
             :key="item.id"
@@ -29,17 +33,38 @@
     <div class="content">
       <div class="operation">
         <el-button class="operation-item" type="danger" @click="clearObstacles">
-          清空障碍物
+          清空
         </el-button>
-        <el-button class="operation-item" type="primary" @click="() => (modalVisiable = true)">
+        <el-button
+          class="operation-item"
+          type="primary"
+          @click="() => (modalVisiable = true)"
+        >
           保存并上传
         </el-button>
-        <el-button class="operation-item" type="success" @click="visualizeQuadTreeWithAnimation"
+        <el-button
+          class="operation-item"
+          type="success"
+          @click="visualizeQuadTreeWithAnimation"
           >四叉分割可视化</el-button
+        >
+        <el-button
+          class="operation-item"
+          type="warning"
+          @click="stepBackward"
+          :disabled="currentStep === 0"
+          >上一步</el-button
+        >
+        <el-button
+          class="operation-item"
+          type="success"
+          @click="stepForward"
+          :disabled="currentStep === animationSteps.length - 1"
+          >下一步</el-button
         >
       </div>
       <v-stage :config="stageConfig" style="background: #fff">
-        <v-layer>
+        <v-layer id="baseLayer">
           <v-circle
             v-for="circle in circles"
             :key="circle.id"
@@ -128,7 +153,10 @@
         </div>
         <div class="props-item">
           <div class="label">填充颜色</div>
-          <el-color-picker v-model.trim="selectedElement.fill" @change="updateSelectedElement" />
+          <el-color-picker
+            v-model.trim="selectedElement.fill"
+            @change="updateSelectedElement"
+          />
         </div>
       </div>
       <div class="title">四叉树分割相关</div>
@@ -140,6 +168,10 @@
         <div class="props-item">
           <div class="label">分割线颜色</div>
           <el-color-picker v-model.trim="dividColor" />
+        </div>
+        <div class="props-item">
+          <div class="label">单步动画时长(秒)</div>
+          <el-input-number v-model="animationDuration" :min="0.1" :max="3" :step="0.1" />
         </div>
       </div>
     </div>
@@ -178,35 +210,44 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import type { IComponentShapeType } from '@/@types/'
-import { componentShapeList } from '@/utils/shapeIcons'
-import { buildQuadTree, type QuadTreeNode } from '@/utils/quadTree'
-import Konva from 'konva'
-
-import type { CreateMapDto, GetMapListDto } from '@/http/map'
-import type { IFrame } from 'konva/lib/types'
-import { createMap, getMapList } from '@/http/map'
-import type { FormInstance } from 'element-plus'
-import type { Obstacles } from '@/@types/dto'
-import { QuadTreeAnimator } from '@/utils/QuadTreeAnimator'
-const mapInfoFormRef = ref<FormInstance>()
-const mapList = ref<GetMapListDto[]>()
-const modalVisiable = ref(false)
+import { ref, onMounted, computed } from "vue";
+import type { IComponentShapeType } from "@/@types/";
+import { componentShapeList } from "@/utils/shapeIcons";
+import Konva from "konva";
+import type { QuadTreeNode } from "@/utils/quadTree";
+import type { GetMapListDto } from "@/http/map";
+import type { IFrame } from "konva/lib/types";
+import { createMap, getMapList } from "@/http/map";
+import type { FormInstance } from "element-plus";
+import type { Obstacles } from "@/@types/dto";
+import { QuadTreeAnimator } from "@/utils/QuadTreeAnimator";
+import { buildQuadTreeFrontend } from "@/utils/quadTree";
+import { gsap } from "gsap";
+const mapInfoFormRef = ref<FormInstance>();
+const tempLayer = ref(new Konva.Layer()); // 用于临时动画的图层
+const persistentLayer = new Konva.Layer(); // 持久化图层
+const mapList = ref<GetMapListDto[]>();
+const modalVisiable = ref(false);
+const animationDuration = ref(0.5); // 动画持续时间（秒）
 const rules = {
-  name: [{ required: true, message: '地图名称不能为空', trigger: 'blur' }],
-  description: [{ required: true, message: '地图描述不能为空', trigger: 'blur' }],
-}
-const handleClose = () => (modalVisiable.value = false)
+  name: [{ required: true, message: "地图名称不能为空", trigger: "blur" }],
+  description: [{ required: true, message: "地图描述不能为空", trigger: "blur" }],
+};
+const animationSteps = ref<QuadTreeNode[]>([]); // 存储每一步的分割状态
+const currentStep = ref(0); // 当前步骤索引
+const isAnimating = ref(false); // 是否正在动画中
+const handleClose = () => (modalVisiable.value = false);
 const handleSelectMapChange = async (id: number) => {
   //清空障碍物
-  clearCanvans()
+  clearCanvans();
   //加载地图信息
-  const obstaclesData = mapList.value?.find((item) => item.id === id)?.obstacles
+  const obstaclesData = mapList.value?.find((item) => item.id === id)?.obstacles;
   if (obstaclesData) {
-    obstacles.value = [...obstaclesData.map((v) => ({ ...v, draggable: true, isDraging: false }))]
+    obstacles.value = [
+      ...obstaclesData.map((v) => ({ ...v, draggable: true, isDraging: false })),
+    ];
   }
-}
+};
 
 /**
  * 保存地图
@@ -214,10 +255,10 @@ const handleSelectMapChange = async (id: number) => {
  * @returns
  */
 const handleSave = async (formEl: FormInstance | undefined) => {
-  if (!formEl) return
+  if (!formEl) return;
   await formEl.validate(async (valid, fields) => {
     if (valid) {
-      const { name, description } = mapInfo.value
+      const { name, description } = mapInfo.value;
       const params = {
         name,
         description,
@@ -226,313 +267,403 @@ const handleSave = async (formEl: FormInstance | undefined) => {
         obstacles: [...obstacles.value],
         minThreshold: minThreshold.value,
         dividColor: dividColor.value,
-      }
-      await createMap(params as CreateMapDto)
-      modalVisiable.value = false
+      };
+      await createMap(params);
+      ElMessage({
+        type: "success",
+        message: "地图保存成功",
+      });
+      mapList.value = await getMapList();
+      modalVisiable.value = false;
     } else {
-      console.log('error submit!!', fields)
+      console.log("error submit!!", fields);
     }
-  })
-}
+  });
+};
 const stageConfig = ref({
   width: 820,
   height: 580,
-})
-const mapInfo = ref<{ name: string; description: string }>({ name: '', description: '' })
-const selectedMap = ref<number>()
+});
+const mapInfo = ref<{ name: string; description: string }>({ name: "", description: "" });
+const selectedMap = ref<number>();
 //加载我的地图列表
 onMounted(async () => {
-  const data = await getMapList()
-  mapList.value = data
-})
+  const data = await getMapList();
+  mapList.value = data;
+  Konva.stages[0] && Konva.stages[0].add(persistentLayer);
+});
 //最小分割阈值
-const minThreshold = ref<number>(20)
-const dividColor = ref<string>('#0077ff')
+const minThreshold = ref<number>(20);
+const dividColor = ref<string>("#0077ff");
 const selectedElement = ref({
-  id: '',
+  id: "",
   x: 0,
   y: 0,
   width: 0,
   height: 0,
   radius: 0,
-  fill: '#000',
-  stroke: '#0077ff',
+  fill: "#000",
+  stroke: "#0077ff",
   strokeWidth: 2,
-  type: 'circle',
-})
+  type: "circle",
+});
 
-const obstacles = ref<Obstacles[]>([])
+const obstacles = ref<Obstacles[]>([]);
 const circles = computed(() => {
-  return obstacles.value.filter((item) => item.type === 'circle')
-})
+  return obstacles.value.filter((item) => item.type === "circle");
+});
 const rectangles = computed(() => {
-  return obstacles.value.filter((item) => item.type === 'rectangle')
-})
+  return obstacles.value.filter((item) => item.type === "rectangle");
+});
 
-
-const addObstacle = (type: string) => {
-  if (type === 'circle') {
-    obstacles.value.push({
-      type: 'circle',
-      x: 100,
-      y: 100,
-      radius: 50,
-      fill: 'black',
-      stroke: 'black',
-      strokeWidth: 0,
-      draggable: true, // 修正拼写错误
-      isDraging: false,
-    })
-  } else if (type === 'rectangle') {
-    obstacles.value.push({
-      type: 'rectangle',
-      x: 200,
-      y: 150,
-      width: 100,
-      height: 100,
-      fill: 'black',
-      stroke: 'black',
-      strokeWidth: 0,
-      draggable: true, // 修正拼写错误
-      isDraging: false,
-    })
-  }
-}
-const clearObstacles = () => {
-  obstacles.value = []
-}
 // 更新障碍物样式
-function updateObstacleStyle(type: IComponentShapeType, id: string, style: Partial<Obstacles>) {
-  console.log(type, id, style)
+function updateObstacleStyle(
+  type: IComponentShapeType,
+  id: string,
+  style: Partial<Obstacles>
+) {
+  console.log(type, id, style);
 }
 
 // 选择障碍物
 function selectObstacle(el: Obstacles) {
-  console.log(el)
+  console.log(el);
 }
 
 // 拖动开始时的处理函数
 function handleDragStart(el: Obstacles) {
-  console.log(el)
+  console.log(el);
 }
 
 function handleDragEnd(item: Obstacles) {
-  console.log(item)
+  console.log(item);
 }
 // 重置选中元素
 const resetSelectedElement = () => {
   selectedElement.value = {
-    id: '',
+    id: "",
     x: 0,
     y: 0,
     width: 0,
     height: 0,
     radius: 0,
-    fill: '#000',
-    stroke: '#0077ff',
+    fill: "#000",
+    stroke: "#0077ff",
     strokeWidth: 2,
-    type: 'circle',
-  }
-}
+    type: "circle",
+  };
+};
 // 拖动时更新位置
 function onDragMove(event: Konva.KonvaEventObject<DragEvent>, el: Obstacles) {
-  const shape = event.target
-  console.log(shape, el)
+  const shape = event.target;
+  console.log(shape, el);
 }
 
 // 更新选中元素的配置
 function updateSelectedElement() {}
 
 // 动画绘制线条函数
-function animateLineDrawing(line: Konva.Line, isHorizontal: boolean, duration: number) {
-  const points = line.points()
+const animateLineDrawing = (
+  line: Konva.Line,
+  isHorizontal: boolean,
+  duration: number
+) => {
+  const points = line.points();
 
   // 确保 points 是数字数组
-  const start = isHorizontal ? points[0] : points[1]
-  const end = isHorizontal ? points[2] : points[3]
+  const start = isHorizontal ? points[0] : points[1];
+  const end = isHorizontal ? points[2] : points[3];
 
   // 使用 Konva 自带的动画
   const animation = new Konva.Animation((frame: IFrame | undefined) => {
-    const progress = Math.min(frame!.time / (duration * 1000), 1) // 计算进度
-    const current = start + (end - start) * progress
+    const progress = Math.min(frame!.time / (duration * 1000), 1); // 计算进度
+    const current = start + (end - start) * progress;
 
     if (isHorizontal) {
-      line.points([start, points[1], current, points[1]])
+      line.points([start, points[1], current, points[1]]);
     } else {
-      line.points([points[0], start, points[0], current])
+      line.points([points[0], start, points[0], current]);
     }
 
     if (progress === 1) {
-      animation.stop() // 动画完成后停止
+      animation.stop(); // 动画完成后停止
     }
-  }, line.getLayer())
+  }, line.getLayer());
 
-  animation.start()
+  animation.start();
+};
+
+// 修改allObstacles计算属性
+const allObstacles = computed(() => {
+  return [
+    ...circles.value.map((item) => ({
+      ...item,
+      type: "circle",
+      x: item.x, // 保持圆心坐标不变
+      y: item.y,
+      radius: item.radius,
+    })),
+    ...rectangles.value.map((item) => ({
+      ...item,
+      type: "rectangle",
+      x: item.x,
+      y: item.y,
+      width: item.width,
+      height: item.height,
+    })),
+  ];
+});
+
+// 生成四叉树分割步骤
+function generateQuadTreeSteps(root: QuadTreeNode): QuadTreeNode[] {
+  const steps: QuadTreeNode[] = [];
+  const queue: QuadTreeNode[] = [root];
+
+  while (queue.length > 0) {
+    const levelSize = queue.length;
+    for (let i = 0; i < levelSize; i++) {
+      const node = queue.shift()!;
+      const clonedNode = JSON.parse(JSON.stringify(node));
+      steps.push(clonedNode);
+
+      if (!node.isLeaf && node.children) {
+        queue.push(...node.children);
+      }
+    }
+  }
+  return steps;
 }
 
-// 四叉树分割函数
-function drawQuadTreeWithAnimation(
-  context: Konva.Layer,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  threshold: number,
-  obstacles: Obstacles[],
-  duration = 0.5,
-) {
-  // 检查当前区域是否包含障碍物
-  const containsObstacle = obstacles.some((obstacle) => {
-    const obstacleX = obstacle.x
-    const obstacleY = obstacle.y
-    const obstacleWidth = obstacle.width!
-    const obstacleHeight = obstacle.height!
+// 步进控制函数
+function stepForward() {
+  if (currentStep.value < animationSteps.value.length - 1) {
+    currentStep.value++;
+    visualizeCurrentStep();
+  }
+}
 
-    return (
-      obstacleX + obstacleWidth > x &&
-      obstacleX < x + width &&
-      obstacleY + obstacleHeight > y &&
-      obstacleY < y + height
-    )
-  })
+function stepBackward() {
+  if (currentStep.value > 0) {
+    currentStep.value--;
+    visualizeCurrentStep();
+  }
+}
 
-  // 如果区域不包含障碍物或已经达到最小分割阈值，则停止分割
-  if (!containsObstacle || width <= threshold || height <= threshold) {
-    return
+// 修改后的可视化入口函数
+function visualizeQuadTreeWithAnimation() {
+  clearCanvans();
+  const { width, height } = stageConfig.value;
+
+  // 构建完整四叉树并生成步骤
+  const quadTree = buildQuadTreeFrontend({
+    width,
+    height,
+    obstacles: allObstacles.value,
+    minThreshold: minThreshold.value,
+  });
+
+  animationSteps.value = generateQuadTreeSteps(quadTree);
+  currentStep.value = 0;
+  visualizeCurrentStep();
+}
+// 常量提取
+const DEFAULT_DIVID_COLOR = "#0077ff";
+const DEFAULT_MIN_THRESHOLD = 20;
+const INITIAL_STAGE_CONFIG = { width: 820, height: 580 };
+const animationQueue = ref<Konva.Animation[]>([]);
+// 响应式状态整合
+const editorState = ref({
+  selectedElement: {
+    id: "",
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+    radius: 0,
+    fill: "#000",
+    stroke: "#0077ff",
+    strokeWidth: 2,
+    type: "circle",
+  },
+  dividColor: DEFAULT_DIVID_COLOR,
+  minThreshold: DEFAULT_MIN_THRESHOLD,
+});
+
+// 优化障碍物创建逻辑
+const createObstacle = (type: string, config: Partial<Obstacles>) => {
+  return {
+    type,
+    x: 100,
+    y: 100,
+    fill: "black",
+    stroke: "black",
+    strokeWidth: 0,
+    draggable: true,
+    isDraging: false,
+    ...config,
+  };
+};
+
+const addObstacle = (type: string) => {
+  const obstaclesMap = {
+    circle: () => createObstacle(type, { radius: 50 }),
+    rectangle: () =>
+      createObstacle(type, {
+        x: 200,
+        y: 150,
+        width: 100,
+        height: 100,
+      }),
+  };
+
+  if (obstaclesMap[type]) {
+    obstacles.value.push(obstaclesMap[type]());
+  }
+};
+
+// 优化可视化绘制逻辑
+const createDividingLine = (points: number[], color: string) => {
+  return new Konva.Line({
+    points,
+    stroke: color,
+    strokeWidth: 1,
+  });
+};
+
+const createCenterPoint = (x: number, y: number, isLeaf: boolean) => {
+  return new Konva.Circle({
+    x,
+    y,
+    radius: 3,
+    fill: isLeaf ? "blue" : "red",
+    stroke: "black",
+    strokeWidth: 1,
+  });
+};
+
+// 改造可视化函数
+async function visualizeCurrentStep() {
+  if (isAnimating.value) return;
+
+  const stage = Konva.stages[0];
+  // 清除旧临时图层内容
+  tempLayer.value.destroyChildren();
+  stage.add(tempLayer.value);
+
+  const currentNode = animationSteps.value[currentStep.value];
+  const { bounds, isLeaf } = currentNode;
+  const { x, y, width, height, midX, midY } = bounds;
+
+  isAnimating.value = true;
+
+  // 使用 GSAP 实现更流畅的动画控制
+  const tl = gsap.timeline();
+  const currentLayer = currentStep.value === 0 ? persistentLayer : tempLayer.value;
+  if (!isLeaf) {
+    // 水平分割线动画
+    const hLine = createDividingLine([x, midY, x, midY], dividColor.value);
+
+    currentLayer.add(hLine);
+
+    tl.to(hLine.points, {
+      duration: animationDuration.value,
+      endArray: [x, midY, x + width, midY],
+      onUpdate: () => hLine.getLayer()?.batchDraw(),
+    });
+
+    // 垂直分割线动画
+    const vLine = createDividingLine([midX, y, midX, y], dividColor.value);
+    currentLayer.add(vLine);
+
+    tl.to(
+      vLine.points,
+      {
+        duration: animationDuration.value,
+        endArray: [midX, y, midX, y + height],
+        onUpdate: () => vLine.getLayer()?.batchDraw(),
+      },
+      "<"
+    ); // 与水平动画同时进行
   }
 
-  // 计算分割线的中点
-  const midX = x + width / 2
-  const midY = y + height / 2
+  // 中心点动画
+  const centerPoint = createCenterPoint(midX, midY, isLeaf);
+  currentLayer.add(centerPoint);
+  tl.fromTo(
+    centerPoint,
+    { radius: 0 },
+    { radius: 3, duration: animationDuration.value / 2 },
+    "<0.2"
+  );
 
-  // 创建水平和垂直分割线
-  const horizontalLine = new Konva.Line({
-    points: [x, midY, x + width, midY],
-    stroke: dividColor.value,
-    strokeWidth: 1,
-  })
+  // 修改动画完成回调
+  tl.eventCallback("onComplete", () => {
+    isAnimating.value = false;
+    // 仅清除临时动画元素，保留图层
+    tempLayer.value.destroyChildren();
+    drawPersistentElements();
+  });
+}
 
-  const verticalLine = new Konva.Line({
-    points: [midX, y, midX, y + height],
-    stroke: dividColor.value,
-    strokeWidth: 1,
-  })
+// 修改持久化元素绘制方法
+function drawPersistentElements() {
+  persistentLayer.destroyChildren();
 
-  context.add(horizontalLine)
-  context.add(verticalLine)
+  animationSteps.value.slice(0, currentStep.value + 1).forEach((node) => {
+    const { bounds, isLeaf } = node;
+    const { midX, midY } = bounds;
 
-  // 动画绘制分割线
-  animateLineDrawing(horizontalLine, true, duration) // 水平线从左到右绘制
-  animateLineDrawing(verticalLine, false, duration) // 垂直线从上到下绘制
+    if (!isLeaf) {
+      persistentLayer.add(
+        createDividingLine(
+          [bounds.x, midY, bounds.x + bounds.width, midY],
+          dividColor.value
+        )
+      );
+      persistentLayer.add(
+        createDividingLine(
+          [midX, bounds.y, midX, bounds.y + bounds.height],
+          dividColor.value
+        )
+      );
+    }
+    persistentLayer.add(createCenterPoint(midX, midY, isLeaf));
+  });
 
-  // 递归分割四个象限
-  setTimeout(() => {
-    drawQuadTreeWithAnimation(context, x, y, width / 2, height / 2, threshold, obstacles, duration)
-    drawQuadTreeWithAnimation(
-      context,
-      midX,
-      y,
-      width / 2,
-      height / 2,
-      threshold,
-      obstacles,
-      duration,
-    )
-    drawQuadTreeWithAnimation(
-      context,
-      x,
-      midY,
-      width / 2,
-      height / 2,
-      threshold,
-      obstacles,
-      duration,
-    )
-    drawQuadTreeWithAnimation(
-      context,
-      midX,
-      midY,
-      width / 2,
-      height / 2,
-      threshold,
-      obstacles,
-      duration,
-    )
-  }, duration * 1000) // 延迟递归，等待当前分割动画完成
+  // 确保持久化图层只添加一次
+  if (!persistentLayer.getParent()) {
+    Konva.stages[0] && Konva.stages[0].add(persistentLayer);
+  }
 }
 
 const clearCanvans = () => {
-  const stage = Konva.stages[0]
-  const layers = stage.getLayers()
-  if (layers.length > 1) {
-    layers[1].destroy()
-  }
-}
-const allObstacles = computed(() => {
-  return [
-    ...circles.value.map((item) => {
-      return {
-        ...item,
-        x: item.x - item.radius!,
-        y: item.y - item.radius!,
-        width: item.radius! * 2,
-        height: item.radius! * 2,
-      }
-    }),
-    ...rectangles.value.map((item) => {
-      return {
-        ...item,
-        x: item.x,
-        y: item.y,
-        width: item.width,
-        height: item.height,
-      }
-    }),
-  ]
-})
-// 在图层上绘制四叉树节点的中心点
-function drawQuadTreeCenters(node: QuadTreeNode, layer: Konva.Layer): void {
-  // 绘制当前节点的中心点
-  const centerCircle = new Konva.Circle({
-    x: node.centerX,
-    y: node.centerY,
-    radius: 3,
-    fill: '#ff0000',
-  });
-
-  // 添加坐标文本
-  const text = new Konva.Text({
-    x: node.centerX + 5,
-    y: node.centerY - 5,
-    text: `${node.centerX.toFixed(0)}, ${node.centerY.toFixed(0)}`,
-    fontSize: 10,
-    fontFamily: 'Arial',
-    fill: 'black'
-  });
-
-  layer.add(centerCircle);
-  layer.add(text);
-
-  // 递归绘制子节点的中心点
-  if (node.children) {
-    for (const child of node.children) {
-      drawQuadTreeCenters(child, layer);
+  const stage = Konva.stages[0];
+  // 保留基础元素图层、持久化图层和临时动画图层
+  stage.getLayers().forEach((layer) => {
+    const isBaseLayer = layer.attrs.id === "baseLayer";
+    if (!isBaseLayer && layer !== persistentLayer && layer !== tempLayer.value) {
+      layer.destroy();
     }
-  }
+  });
+  // 强制刷新视图
+  stage.batchDraw();
+};
+// 初始化逻辑封装
+function initializeState() {
+  obstacles.value = [];
+  animationSteps.value = [];
+  currentStep.value = 0;
+  dividColor.value = DEFAULT_DIVID_COLOR;
+  minThreshold.value = DEFAULT_MIN_THRESHOLD;
+  resetSelectedElement();
+  clearCanvans();
+  persistentLayer.destroyChildren();
+  tempLayer.value.destroyChildren();
 }
-// 可视化四叉树分割
-function visualizeQuadTreeWithAnimation() {
-  clearCanvans()
-  const layer = new Konva.Layer()
-  const { width, height } = stageConfig.value
 
-  // drawQuadTreeWithAnimation(layer, 0, 0, width, height, minThreshold.value, allObstacles.value)
-  const rootNode = buildQuadTree(width,height,minThreshold.value,allObstacles.value)
-  console.log(rootNode);
-  const quadTreeAnimator = new QuadTreeAnimator(Konva.stages[0],layer,rootNode)
-
-  Konva.stages[0].add(layer)
-}
+const clearObstacles = () => {
+  initializeState();
+};
 </script>
 
 <style scoped>
