@@ -31,6 +31,48 @@
     </div>
 
     <div class="content">
+      <div class="play-buttons">
+        <el-button
+          class="operation-item"
+          type="primary"
+          @click="stepBackward"
+          :disabled="currentStep === 0 || !hasAnimationSteps || isPlaying"
+        >
+          上一步
+        </el-button>
+
+        <el-button
+          class="operation-item"
+          type="success"
+          @click="autoPlaySteps"
+          :disabled="
+            isAnimating || currentStep === animationSteps.length - 1 || !hasAnimationSteps
+          "
+        >
+          播放
+        </el-button>
+
+        <el-button
+          class="operation-item"
+          type="warning"
+          @click="togglePause"
+          :disabled="!isPlaying || !hasAnimationSteps"
+        >
+          {{ "暂停" }}
+        </el-button>
+
+        <el-button
+          class="operation-item"
+          type="primary"
+          @click="stepForward"
+          :disabled="
+            currentStep === animationSteps.length - 1 || !hasAnimationSteps || isPlaying
+          "
+        >
+          下一步
+        </el-button>
+      </div>
+
       <div class="operation">
         <el-button class="operation-item" type="danger" @click="clearObstacles">
           清空
@@ -46,22 +88,9 @@
           class="operation-item"
           type="success"
           @click="visualizeQuadTreeWithAnimation"
-          >四叉分割可视化</el-button
         >
-        <el-button
-          class="operation-item"
-          type="warning"
-          @click="stepBackward"
-          :disabled="currentStep === 0"
-          >上一步</el-button
-        >
-        <el-button
-          class="operation-item"
-          type="success"
-          @click="stepForward"
-          :disabled="currentStep === animationSteps.length - 1"
-          >下一步</el-button
-        >
+          四叉分割可视化
+        </el-button>
       </div>
       <v-stage :config="stageConfig" style="background: #fff">
         <v-layer id="baseLayer">
@@ -70,18 +99,16 @@
             :key="circle.id"
             :config="circle"
             @dragstart="handleDragStart(circle)"
-            @dragend="handleDragEnd(circle)"
+            @dragend="handleDragEnd($event, circle)"
             @dragmove="onDragMove($event, circle)"
-            @click="selectObstacle(circle)"
           />
           <v-rect
             v-for="rect in rectangles"
             :key="rect.id"
             :config="rect"
             @dragstart="handleDragStart(rect)"
-            @dragend="handleDragEnd(rect)"
+            @dragend="handleDragEnd($event, rect)"
             @dragmove="onDragMove($event, rect)"
-            @click="selectObstacle(rect)"
           />
         </v-layer>
       </v-stage>
@@ -91,7 +118,7 @@
       <div class="title">地图相关</div>
       <div class="map-props">
         <div class="props-item">
-          <div class="label">地图高度:W</div>
+          <div class="label">地图宽度:W</div>
           <el-input type="number" v-model.number="stageConfig.width" />
         </div>
         <div class="props-item">
@@ -103,12 +130,7 @@
       <div class="title">当前选中元素</div>
       <div class="current-element">
         <div class="name">
-          {{
-            componentShapeList.filter((item: any) => item.type === selectedElement.type)[0]?.name
-              ? componentShapeList.filter((item: any) => item.type === selectedElement.type)[0]
-                  ?.name
-              : '当前无选中障碍物'
-          }}
+          {{ getSelectedElementName() }}
         </div>
 
         <div class="props-item">
@@ -216,47 +238,50 @@ import { componentShapeList } from "@/utils/shapeIcons";
 import Konva from "konva";
 import type { QuadTreeNode } from "@/utils/quadTree";
 import type { GetMapListDto } from "@/http/map";
-import type { IFrame } from "konva/lib/types";
 import { createMap, getMapList } from "@/http/map";
 import type { FormInstance } from "element-plus";
 import type { Obstacles } from "@/@types/dto";
-import { QuadTreeAnimator } from "@/utils/QuadTreeAnimator";
 import { buildQuadTreeFrontend } from "@/utils/quadTree";
+import { ElMessage } from "element-plus";
 import { gsap } from "gsap";
+import { v4 as uuidv4 } from "uuid";
 const mapInfoFormRef = ref<FormInstance>();
-const tempLayer = ref(new Konva.Layer()); // 用于临时动画的图层
-const persistentLayer = new Konva.Layer(); // 持久化图层
+const tempLayer = ref(new Konva.Layer());
+const persistentLayer = new Konva.Layer();
 const mapList = ref<GetMapListDto[]>();
 const modalVisiable = ref(false);
-const animationDuration = ref(0.5); // 动画持续时间（秒）
+const animationDuration = ref(0.5);
 const rules = {
   name: [{ required: true, message: "地图名称不能为空", trigger: "blur" }],
   description: [{ required: true, message: "地图描述不能为空", trigger: "blur" }],
 };
-const animationSteps = ref<QuadTreeNode[]>([]); // 存储每一步的分割状态
-const currentStep = ref(0); // 当前步骤索引
-const isAnimating = ref(false); // 是否正在动画中
+const animationSteps = ref<QuadTreeNode[]>([]);
+const currentStep = ref(0);
+const isAnimating = ref(false);
+const isPlaying = ref(false);
+const isPaused = ref(false);
+const generateId = () => {
+  return uuidv4();
+};
 const handleClose = () => (modalVisiable.value = false);
+
 const handleSelectMapChange = async (id: number) => {
-  //清空障碍物
   clearCanvans();
-  //加载地图信息
   const obstaclesData = mapList.value?.find((item) => item.id === id)?.obstacles;
   if (obstaclesData) {
-    obstacles.value = [
-      ...obstaclesData.map((v) => ({ ...v, draggable: true, isDraging: false })),
-    ];
+    obstacles.value = obstaclesData.map((v) => ({
+      ...v,
+      draggable: true,
+      isDraging: false,
+    }));
   }
 };
 
-/**
- * 保存地图
- * @param formEl
- * @returns
- */
+const hasAnimationSteps = computed(() => animationSteps.value.length > 0);
+
 const handleSave = async (formEl: FormInstance | undefined) => {
   if (!formEl) return;
-  await formEl.validate(async (valid, fields) => {
+  await formEl.validate(async (valid) => {
     if (valid) {
       const { name, description } = mapInfo.value;
       const params = {
@@ -275,26 +300,26 @@ const handleSave = async (formEl: FormInstance | undefined) => {
       });
       mapList.value = await getMapList();
       modalVisiable.value = false;
-    } else {
-      console.log("error submit!!", fields);
     }
   });
 };
+
 const stageConfig = ref({
   width: 820,
   height: 580,
 });
+
 const mapInfo = ref<{ name: string; description: string }>({ name: "", description: "" });
 const selectedMap = ref<number>();
-//加载我的地图列表
+
 onMounted(async () => {
-  const data = await getMapList();
-  mapList.value = data;
-  Konva.stages[0] && Konva.stages[0].add(persistentLayer);
+  mapList.value = await getMapList();
+  Konva.stages[0]?.add(persistentLayer);
 });
-//最小分割阈值
+
 const minThreshold = ref<number>(20);
 const dividColor = ref<string>("#0077ff");
+
 const selectedElement = ref({
   id: "",
   x: 0,
@@ -305,40 +330,93 @@ const selectedElement = ref({
   fill: "#000",
   stroke: "#0077ff",
   strokeWidth: 2,
-  type: "circle",
+  type: "",
 });
 
 const obstacles = ref<Obstacles[]>([]);
-const circles = computed(() => {
-  return obstacles.value.filter((item) => item.type === "circle");
-});
-const rectangles = computed(() => {
-  return obstacles.value.filter((item) => item.type === "rectangle");
-});
 
-// 更新障碍物样式
-function updateObstacleStyle(
-  type: IComponentShapeType,
-  id: string,
-  style: Partial<Obstacles>
-) {
-  console.log(type, id, style);
-}
+const circles = computed(() => obstacles.value.filter((item) => item.type === "circle"));
+const rectangles = computed(() =>
+  obstacles.value.filter((item) => item.type === "rectangle")
+);
 
-// 选择障碍物
-function selectObstacle(el: Obstacles) {
-  console.log(el);
-}
+const getSelectedElementName = () => {
+  const matchedItem = componentShapeList.find(
+    (item) => item.type === selectedElement.value.type
+  );
+  return matchedItem?.name || "当前无选中障碍物";
+};
 
-// 拖动开始时的处理函数
-function handleDragStart(el: Obstacles) {
-  console.log(el);
-}
+const autoPlaySteps = async () => {
+  if (isPlaying.value) return;
+  isPlaying.value = true;
+  isPaused.value = false;
 
-function handleDragEnd(item: Obstacles) {
-  console.log(item);
-}
-// 重置选中元素
+  while (currentStep.value < animationSteps.value.length - 1 && !isPaused.value) {
+    await stepForward();
+    await new Promise((resolve) => {
+      if (!isAnimating.value) resolve(true);
+      const check = setInterval(() => {
+        if (!isAnimating.value) {
+          clearInterval(check);
+          resolve(true);
+        }
+      }, 100);
+    });
+  }
+  if (!isPaused.value) {
+    ElMessage({
+      type: "success",
+      message: "分割完成",
+    });
+  }
+  isPlaying.value = false;
+};
+
+const togglePause = () => {
+  isPaused.value = !isPaused.value;
+  if (!isPaused.value && currentStep.value < animationSteps.value.length - 1) {
+    autoPlaySteps();
+  }
+};
+const setActiveElement = (el: Obstacles) => {
+  const element = obstacles.value.find((item) => item.id === el.id);
+  if (element) {
+    element.isDraging = true;
+    element.stroke = "#0077ff";
+    element.strokeWidth = 4;
+  }
+};
+const clearActiveElement = (el: Obstacles) => {
+  const element = obstacles.value.find((item) => item.id === el.id);
+  if (element) {
+    element.isDraging = false;
+    element.stroke = "#000";
+    element.strokeWidth = 0;
+  }
+};
+
+const handleDragStart = (el: Obstacles) => {
+  setActiveElement(el);
+};
+
+const handleDragEnd = (event: Konva.KonvaEventObject<DragEvent>, el: Obstacles) => {
+  //更新obstacles的位置信息
+  const shape = event.target;
+  const { x, y } = shape.getAbsolutePosition();
+  const { id } = shape.attrs;
+  const index = obstacles.value.findIndex((item) => item.id === id);
+  if (index !== -1) {
+    obstacles.value[index] = {
+      ...obstacles.value[index],
+      x,
+      y,
+    };
+  }
+  //清除选中状态
+  clearActiveElement(el);
+};
+
 const resetSelectedElement = () => {
   selectedElement.value = {
     id: "",
@@ -353,108 +431,65 @@ const resetSelectedElement = () => {
     type: "circle",
   };
 };
-// 拖动时更新位置
-function onDragMove(event: Konva.KonvaEventObject<DragEvent>, el: Obstacles) {
+
+const onDragMove = (event: Konva.KonvaEventObject<DragEvent>, el: Obstacles) => {
+  setActiveElement(el);
   const shape = event.target;
-  console.log(shape, el);
-}
-
-// 更新选中元素的配置
-function updateSelectedElement() {}
-
-// 动画绘制线条函数
-const animateLineDrawing = (
-  line: Konva.Line,
-  isHorizontal: boolean,
-  duration: number
-) => {
-  const points = line.points();
-
-  // 确保 points 是数字数组
-  const start = isHorizontal ? points[0] : points[1];
-  const end = isHorizontal ? points[2] : points[3];
-
-  // 使用 Konva 自带的动画
-  const animation = new Konva.Animation((frame: IFrame | undefined) => {
-    const progress = Math.min(frame!.time / (duration * 1000), 1); // 计算进度
-    const current = start + (end - start) * progress;
-
-    if (isHorizontal) {
-      line.points([start, points[1], current, points[1]]);
-    } else {
-      line.points([points[0], start, points[0], current]);
-    }
-
-    if (progress === 1) {
-      animation.stop(); // 动画完成后停止
-    }
-  }, line.getLayer());
-
-  animation.start();
+  const { x, y } = shape.getAbsolutePosition();
+  const { id } = shape.attrs;
+  const index = obstacles.value.findIndex((item) => item.id === id);
+  if (index !== -1) {
+    obstacles.value[index] = {
+      ...obstacles.value[index],
+      x,
+      y,
+    };
+  }
 };
 
-// 修改allObstacles计算属性
-const allObstacles = computed(() => {
-  return [
-    ...circles.value.map((item) => ({
-      ...item,
-      type: "circle",
-      x: item.x, // 保持圆心坐标不变
-      y: item.y,
-      radius: item.radius,
-    })),
-    ...rectangles.value.map((item) => ({
-      ...item,
-      type: "rectangle",
-      x: item.x,
-      y: item.y,
-      width: item.width,
-      height: item.height,
-    })),
-  ];
+const updateSelectedElement = () => {
+  // 可添加更新逻辑
+};
+
+const allObstacles = computed<Obstacles[]>(() => {
+  return [...circles.value, ...rectangles.value];
 });
 
-// 生成四叉树分割步骤
-function generateQuadTreeSteps(root: QuadTreeNode): QuadTreeNode[] {
+const generateQuadTreeSteps = (root: QuadTreeNode): QuadTreeNode[] => {
   const steps: QuadTreeNode[] = [];
   const queue: QuadTreeNode[] = [root];
 
   while (queue.length > 0) {
-    const levelSize = queue.length;
-    for (let i = 0; i < levelSize; i++) {
-      const node = queue.shift()!;
-      const clonedNode = JSON.parse(JSON.stringify(node));
-      steps.push(clonedNode);
-
-      if (!node.isLeaf && node.children) {
-        queue.push(...node.children);
-      }
+    const node = queue.shift()!;
+    steps.push({ ...node });
+    if (!node.isLeaf && node.children) {
+      queue.push(...node.children);
     }
   }
   return steps;
-}
+};
 
-// 步进控制函数
-function stepForward() {
-  if (currentStep.value < animationSteps.value.length - 1) {
-    currentStep.value++;
-    visualizeCurrentStep();
-  }
-}
+const stepForward = () => {
+  return new Promise<void>((resolve) => {
+    if (currentStep.value < animationSteps.value.length - 1) {
+      currentStep.value++;
+      visualizeCurrentStep().then(resolve);
+    } else {
+      resolve();
+    }
+  });
+};
 
-function stepBackward() {
+const stepBackward = () => {
   if (currentStep.value > 0) {
     currentStep.value--;
     visualizeCurrentStep();
   }
-}
+};
 
-// 修改后的可视化入口函数
-function visualizeQuadTreeWithAnimation() {
+const visualizeQuadTreeWithAnimation = () => {
   clearCanvans();
   const { width, height } = stageConfig.value;
-
-  // 构建完整四叉树并生成步骤
   const quadTree = buildQuadTreeFrontend({
     width,
     height,
@@ -464,64 +499,11 @@ function visualizeQuadTreeWithAnimation() {
 
   animationSteps.value = generateQuadTreeSteps(quadTree);
   currentStep.value = 0;
+  isPlaying.value = false;
+  isPaused.value = false;
   visualizeCurrentStep();
-}
-// 常量提取
-const DEFAULT_DIVID_COLOR = "#0077ff";
-const DEFAULT_MIN_THRESHOLD = 20;
-const INITIAL_STAGE_CONFIG = { width: 820, height: 580 };
-const animationQueue = ref<Konva.Animation[]>([]);
-// 响应式状态整合
-const editorState = ref({
-  selectedElement: {
-    id: "",
-    x: 0,
-    y: 0,
-    width: 0,
-    height: 0,
-    radius: 0,
-    fill: "#000",
-    stroke: "#0077ff",
-    strokeWidth: 2,
-    type: "circle",
-  },
-  dividColor: DEFAULT_DIVID_COLOR,
-  minThreshold: DEFAULT_MIN_THRESHOLD,
-});
-
-// 优化障碍物创建逻辑
-const createObstacle = (type: string, config: Partial<Obstacles>) => {
-  return {
-    type,
-    x: 100,
-    y: 100,
-    fill: "black",
-    stroke: "black",
-    strokeWidth: 0,
-    draggable: true,
-    isDraging: false,
-    ...config,
-  };
 };
 
-const addObstacle = (type: string) => {
-  const obstaclesMap = {
-    circle: () => createObstacle(type, { radius: 50 }),
-    rectangle: () =>
-      createObstacle(type, {
-        x: 200,
-        y: 150,
-        width: 100,
-        height: 100,
-      }),
-  };
-
-  if (obstaclesMap[type]) {
-    obstacles.value.push(obstaclesMap[type]());
-  }
-};
-
-// 优化可视化绘制逻辑
 const createDividingLine = (points: number[], color: string) => {
   return new Konva.Line({
     points,
@@ -541,74 +523,70 @@ const createCenterPoint = (x: number, y: number, isLeaf: boolean) => {
   });
 };
 
-// 改造可视化函数
-async function visualizeCurrentStep() {
-  if (isAnimating.value) return;
+const visualizeCurrentStep = async () => {
+  return new Promise<void>((resolve) => {
+    if (isAnimating.value) return;
 
-  const stage = Konva.stages[0];
-  // 清除旧临时图层内容
-  tempLayer.value.destroyChildren();
-  stage.add(tempLayer.value);
-
-  const currentNode = animationSteps.value[currentStep.value];
-  const { bounds, isLeaf } = currentNode;
-  const { x, y, width, height, midX, midY } = bounds;
-
-  isAnimating.value = true;
-
-  // 使用 GSAP 实现更流畅的动画控制
-  const tl = gsap.timeline();
-  const currentLayer = currentStep.value === 0 ? persistentLayer : tempLayer.value;
-  if (!isLeaf) {
-    // 水平分割线动画
-    const hLine = createDividingLine([x, midY, x, midY], dividColor.value);
-
-    currentLayer.add(hLine);
-
-    tl.to(hLine.points, {
-      duration: animationDuration.value,
-      endArray: [x, midY, x + width, midY],
-      onUpdate: () => hLine.getLayer()?.batchDraw(),
-    });
-
-    // 垂直分割线动画
-    const vLine = createDividingLine([midX, y, midX, y], dividColor.value);
-    currentLayer.add(vLine);
-
-    tl.to(
-      vLine.points,
-      {
-        duration: animationDuration.value,
-        endArray: [midX, y, midX, y + height],
-        onUpdate: () => vLine.getLayer()?.batchDraw(),
-      },
-      "<"
-    ); // 与水平动画同时进行
-  }
-
-  // 中心点动画
-  const centerPoint = createCenterPoint(midX, midY, isLeaf);
-  currentLayer.add(centerPoint);
-  tl.fromTo(
-    centerPoint,
-    { radius: 0 },
-    { radius: 3, duration: animationDuration.value / 2 },
-    "<0.2"
-  );
-
-  // 修改动画完成回调
-  tl.eventCallback("onComplete", () => {
-    isAnimating.value = false;
-    // 仅清除临时动画元素，保留图层
+    const stage = Konva.stages[0];
     tempLayer.value.destroyChildren();
-    drawPersistentElements();
+    stage?.add(tempLayer.value as Konva.Layer);
+
+    const currentNode = animationSteps.value[currentStep.value];
+    if (!currentNode) {
+      resolve();
+      return;
+    }
+
+    const { bounds, isLeaf } = currentNode;
+    const { x, y, width, height, midX, midY } = bounds;
+
+    isAnimating.value = true;
+
+    const tl = gsap.timeline();
+    const currentLayer = currentStep.value === 0 ? persistentLayer : tempLayer.value;
+
+    if (!isLeaf) {
+      const hLine = createDividingLine([x, midY, x, midY], dividColor.value);
+      currentLayer.add(hLine);
+      tl.to(hLine.points(), {
+        duration: animationDuration.value,
+        endArray: [x, midY, x + width, midY],
+        onUpdate: () => hLine.getLayer()?.batchDraw() as void,
+      });
+
+      const vLine = createDividingLine([midX, y, midX, y], dividColor.value);
+      currentLayer.add(vLine);
+      tl.to(
+        vLine.points(),
+        {
+          duration: animationDuration.value,
+          endArray: [midX, y, midX, y + height],
+          onUpdate: () => vLine.getLayer()?.batchDraw() as void,
+        },
+        "<"
+      );
+    }
+
+    const centerPoint = createCenterPoint(midX, midY, isLeaf);
+    currentLayer.add(centerPoint);
+    tl.fromTo(
+      centerPoint,
+      { radius: 0 },
+      { radius: 3, duration: animationDuration.value / 2 },
+      "<0.1"
+    );
+
+    tl.eventCallback("onComplete", () => {
+      isAnimating.value = false;
+      tempLayer.value.destroyChildren();
+      drawPersistentElements();
+      resolve();
+    });
   });
-}
+};
 
-// 修改持久化元素绘制方法
-function drawPersistentElements() {
+const drawPersistentElements = () => {
   persistentLayer.destroyChildren();
-
   animationSteps.value.slice(0, currentStep.value + 1).forEach((node) => {
     const { bounds, isLeaf } = node;
     const { midX, midY } = bounds;
@@ -630,39 +608,75 @@ function drawPersistentElements() {
     persistentLayer.add(createCenterPoint(midX, midY, isLeaf));
   });
 
-  // 确保持久化图层只添加一次
-  if (!persistentLayer.getParent()) {
-    Konva.stages[0] && Konva.stages[0].add(persistentLayer);
+  if (!persistentLayer.getParent() && Konva.stages[0]) {
+    Konva.stages[0].add(persistentLayer);
   }
-}
+};
 
 const clearCanvans = () => {
   const stage = Konva.stages[0];
-  // 保留基础元素图层、持久化图层和临时动画图层
-  stage.getLayers().forEach((layer) => {
-    const isBaseLayer = layer.attrs.id === "baseLayer";
-    if (!isBaseLayer && layer !== persistentLayer && layer !== tempLayer.value) {
-      layer.destroy();
-    }
-  });
-  // 强制刷新视图
-  stage.batchDraw();
+  if (stage) {
+    stage.getLayers().forEach((layer) => {
+      if (
+        layer.id() !== "baseLayer" &&
+        layer !== persistentLayer &&
+        layer !== tempLayer.value
+      ) {
+        layer.destroy();
+      }
+    });
+    stage.batchDraw();
+  }
 };
-// 初始化逻辑封装
-function initializeState() {
+
+const initializeState = () => {
   obstacles.value = [];
   animationSteps.value = [];
   currentStep.value = 0;
-  dividColor.value = DEFAULT_DIVID_COLOR;
-  minThreshold.value = DEFAULT_MIN_THRESHOLD;
+  dividColor.value = "#0077ff";
+  minThreshold.value = 20;
   resetSelectedElement();
   clearCanvans();
   persistentLayer.destroyChildren();
   tempLayer.value.destroyChildren();
-}
+};
 
 const clearObstacles = () => {
   initializeState();
+};
+
+const addObstacle = (type: IComponentShapeType) => {
+  let newObstacle: Obstacles;
+  const commonProps = {
+    fill: "#000",
+    stroke: "#000",
+    strokeWidth: 0,
+    id: generateId(),
+  };
+  if (type === "circle") {
+    newObstacle = {
+      ...commonProps,
+      type,
+      radius: 50,
+      x: 100,
+      y: 100,
+      draggable: true, // 添加 draggable 属性
+      isDraging: false, // 添加 isDraging 属性
+    };
+    obstacles.value.push(newObstacle);
+  } else if (type === "rectangle") {
+    newObstacle = {
+      ...commonProps,
+      type,
+      width: 100,
+      height: 100,
+      x: 200,
+      y: 150,
+      draggable: true, // 添加 draggable 属性
+      isDraging: false, // 添加 isDraging 属性
+    };
+    obstacles.value.push(newObstacle);
+  }
 };
 </script>
 
@@ -700,11 +714,11 @@ const clearObstacles = () => {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  .modal-footer {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 20px;
-  }
+}
+.map-info-form .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
 }
 .container {
   background-color: #f0f0f0;
@@ -715,98 +729,107 @@ const clearObstacles = () => {
   overflow: hidden;
   display: flex;
   flex-direction: row;
-  .shapes {
-    max-width: 200px;
-    display: flex;
-    flex-direction: column;
-    .shapes-container {
-      display: flex;
-      flex-wrap: wrap;
-      .shapes-item {
-        color: #000;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        width: 75px;
-        height: 75px;
-        margin: 10px;
-        border-radius: 4px;
-        cursor: pointer;
-        .icon {
-          font-size: 48px;
-        }
-        .icon-name {
-          font-size: 12px;
-          margin-top: 5px;
-        }
-        &:hover {
-          transition: all 0.5s;
-          background-color: var(--link-hover-color);
-          border: 1px solid var(--border-color);
-        }
-      }
-    }
-  }
-  .content {
-    background-color: #c7e9ff;
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    max-height: 960px;
-    min-height: 800px;
-    position: relative;
-    .operation {
-      position: absolute;
-      z-index: 1000;
-      right: 0;
-      bottom: 0;
-      display: flex;
-      .operation-item {
-        padding: 10px;
-        font-size: 16px;
-        margin: 10px;
-      }
-    }
-  }
-  .tool-box {
-    min-width: 300px;
-    background-color: #f0f0f0;
-    display: flex;
-    flex-direction: column;
-    .props-item {
-      color: #000;
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      .label {
-        text-align: center;
-        min-width: 100px;
-        font-size: 14px;
-        margin-right: 10px;
-      }
-    }
-
-    .map-props,
-    .params,
-    .current-element {
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-      justify-content: start;
-      gap: 10px;
-      margin: 10px;
-      padding: 10px;
-      background-color: white;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-      border-radius: 16px;
-      .name {
-        text-align: center;
-        color: #000;
-      }
-    }
-  }
+}
+.container .shapes {
+  max-width: 200px;
+  display: flex;
+  flex-direction: column;
+}
+.container .shapes .shapes-container {
+  display: flex;
+  flex-wrap: wrap;
+}
+.container .shapes .shapes-container .shapes-item {
+  color: #000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 75px;
+  height: 75px;
+  margin: 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.container .shapes .shapes-container .shapes-item .icon {
+  font-size: 48px;
+}
+.container .shapes .shapes-container .shapes-item .icon-name {
+  font-size: 12px;
+  margin-top: 5px;
+}
+.container .shapes .shapes-container .shapes-item:hover {
+  transition: all 0.5s;
+  background-color: var(--link-hover-color);
+  border: 1px solid var(--border-color);
+}
+.container .content {
+  background-color: #c7e9ff;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-height: 960px;
+  min-height: 800px;
+  position: relative;
+}
+.container .content .play-buttons {
+  position: absolute;
+  z-index: 1000;
+  top: 20px;
+  right: 0;
+  display: flex;
+  gap: 10px;
+}
+.container .content .operation-item {
+  padding: 10px;
+  font-size: 16px;
+  margin: 10px;
+}
+.container .content .operation {
+  position: absolute;
+  z-index: 1000;
+  right: 0;
+  bottom: 0;
+  display: flex;
+}
+.container .tool-box {
+  min-width: 300px;
+  background-color: #f0f0f0;
+  display: flex;
+  flex-direction: column;
+}
+.container .tool-box .props-item {
+  color: #000;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.container .tool-box .props-item .label {
+  text-align: center;
+  min-width: 100px;
+  font-size: 14px;
+  margin-right: 10px;
+}
+.container .tool-box .map-props,
+.container .tool-box .params,
+.container .tool-box .current-element {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  justify-content: start;
+  gap: 10px;
+  margin: 10px;
+  padding: 10px;
+  background-color: white;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+}
+.container .tool-box .map-props .name,
+.container .tool-box .params .name,
+.container .tool-box .current-element .name {
+  text-align: center;
+  color: #000;
 }
 .shape {
   cursor: pointer;
