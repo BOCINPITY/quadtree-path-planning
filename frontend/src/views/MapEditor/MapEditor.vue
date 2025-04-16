@@ -13,54 +13,50 @@
           <div class="icon-name">{{ shape.name }}</div>
         </div>
       </div>
-      <div class="title">云端地图</div>
+      <div class="title">我的云端地图</div>
       <div class="map-list">
-        <el-select v-model="selectedMap" placeholder="请选择地图">
+        <el-select v-model="selectedMap" placeholder="请选择地图" @change="handleSelectMapChange">
           <el-option
             v-for="item in mapList"
-            :key="item._id"
-            :label="item._id"
-            :value="item._id"
+            :key="item.id"
+            :label="item.name"
+            :value="item.id"
           ></el-option>
         </el-select>
-        <el-button type="default">加载地图</el-button>
       </div>
     </div>
 
     <div class="content">
       <div class="operation">
-        <el-button class="operation-item" type="danger" @click="clearObstacles"
-          >清空障碍物</el-button
-        >
-        <el-button class="operation-item" type="primary" @click="saveObstacles"
-          >保存并上传</el-button
-        >
-        <el-button
-          class="operation-item"
-          type="success"
-          @click="visualizeQuadTreeWithAnimation"
+        <el-button class="operation-item" type="danger" @click="clearObstacles">
+          清空障碍物
+        </el-button>
+        <el-button class="operation-item" type="primary" @click="() => (modalVisiable = true)">
+          保存并上传
+        </el-button>
+        <el-button class="operation-item" type="success" @click="visualizeQuadTreeWithAnimation"
           >四叉分割可视化</el-button
         >
       </div>
       <v-stage :config="stageConfig" style="background: #fff">
         <v-layer>
           <v-circle
-            v-for="(circle, index) in obstacles.circles"
-            :key="`circle-${index}`"
+            v-for="circle in circles"
+            :key="circle.id"
             :config="circle"
-            @dragstart="handleDragStart($event, circle.type, index)"
-            @dragend="handleDragEnd(circle.type, index)"
-            @dragmove="onDragMove($event, circle.type, index)"
-            @click="selectObstacle(circle.type, index)"
+            @dragstart="handleDragStart(circle)"
+            @dragend="handleDragEnd(circle)"
+            @dragmove="onDragMove($event, circle)"
+            @click="selectObstacle(circle)"
           />
           <v-rect
-            v-for="(rect, index) in obstacles.rectangles"
-            :key="`rect-${index}`"
+            v-for="rect in rectangles"
+            :key="rect.id"
             :config="rect"
-            @dragstart="handleDragStart($event, rect.type, index)"
-            @dragend="handleDragEnd(rect.type, index)"
-            @dragmove="onDragMove($event, rect.type, index)"
-            @click="selectObstacle(rect.type, index)"
+            @dragstart="handleDragStart(rect)"
+            @dragend="handleDragEnd(rect)"
+            @dragmove="onDragMove($event, rect)"
+            @click="selectObstacle(rect)"
           />
         </v-layer>
       </v-stage>
@@ -94,7 +90,7 @@
           <div class="label">Position:X</div>
           <el-input
             type="number"
-            v-model.number="selectedElement.config.x"
+            v-model.number="selectedElement.x"
             @input="updateSelectedElement"
           />
         </div>
@@ -102,7 +98,7 @@
           <div class="label">Position:Y</div>
           <el-input
             type="number"
-            v-model.number="selectedElement.config.y"
+            v-model.number="selectedElement.y"
             @input="updateSelectedElement"
           />
         </div>
@@ -110,7 +106,7 @@
           <div class="label">半径</div>
           <el-input
             type="number"
-            v-model.number="(selectedElement.config as CircleConfig).radius"
+            v-model.number="selectedElement.radius"
             @input="updateSelectedElement"
           />
         </div>
@@ -118,7 +114,7 @@
           <div class="label">宽度</div>
           <el-input
             type="number"
-            v-model.number="(selectedElement.config as RectangleConfig).width"
+            v-model.number="selectedElement.width"
             @input="updateSelectedElement"
           />
         </div>
@@ -126,16 +122,13 @@
           <div class="label">高度</div>
           <el-input
             type="number"
-            v-model.number="(selectedElement.config as RectangleConfig).height"
+            v-model.number="selectedElement.height"
             @input="updateSelectedElement"
           />
         </div>
         <div class="props-item">
           <div class="label">填充颜色</div>
-          <el-color-picker
-            v-model.trim="selectedElement.config.fill"
-            @change="updateSelectedElement"
-          />
+          <el-color-picker v-model.trim="selectedElement.fill" @change="updateSelectedElement" />
         </div>
       </div>
       <div class="title">四叉树分割相关</div>
@@ -151,61 +144,135 @@
       </div>
     </div>
   </div>
+  <el-dialog
+    v-model="modalVisiable"
+    title="地图信息"
+    width="20%"
+    :close-on-click-modal="false"
+    :show-close="false"
+    :before-close="handleClose"
+  >
+    <el-form
+      class="map-info-form"
+      label-width="80px"
+      ref="mapInfoFormRef"
+      :model="mapInfo"
+      :rules="rules"
+    >
+      <el-form-item label="地图名称" prop="name">
+        <el-input v-model="mapInfo.name" placeholder="请输入地图名称"></el-input>
+      </el-form-item>
+      <el-form-item label="地图描述" prop="description">
+        <el-input
+          type="textarea"
+          v-model="mapInfo.description"
+          placeholder="请输入地图描述"
+        ></el-input>
+      </el-form-item>
+      <div class="modal-footer">
+        <el-button @click="handleClose">取消</el-button>
+        <el-button type="primary" @click="handleSave(mapInfoFormRef)">保存</el-button>
+      </div>
+    </el-form>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, type Ref, onMounted } from 'vue'
-import type { RectangleConfig, CircleConfig, INode, QTMapListItem } from '@/@types/'
+import { ref, onMounted, computed } from 'vue'
+import type { IComponentShapeType } from '@/@types/'
 import { componentShapeList } from '@/utils/shapeIcons'
+import { buildQuadTree, type QuadTreeNode } from '@/utils/quadTree'
 import Konva from 'konva'
 
+import type { CreateMapDto, GetMapListDto } from '@/http/map'
 import type { IFrame } from 'konva/lib/types'
 import { createMap, getMapList } from '@/http/map'
-const mapList = ref<QTMapListItem[]>()
+import type { FormInstance } from 'element-plus'
+import type { Obstacles } from '@/@types/dto'
+import { QuadTreeAnimator } from '@/utils/QuadTreeAnimator'
+const mapInfoFormRef = ref<FormInstance>()
+const mapList = ref<GetMapListDto[]>()
+const modalVisiable = ref(false)
+const rules = {
+  name: [{ required: true, message: '地图名称不能为空', trigger: 'blur' }],
+  description: [{ required: true, message: '地图描述不能为空', trigger: 'blur' }],
+}
+const handleClose = () => (modalVisiable.value = false)
+const handleSelectMapChange = async (id: number) => {
+  //清空障碍物
+  clearCanvans()
+  //加载地图信息
+  const obstaclesData = mapList.value?.find((item) => item.id === id)?.obstacles
+  if (obstaclesData) {
+    obstacles.value = [...obstaclesData.map((v) => ({ ...v, draggable: true, isDraging: false }))]
+  }
+}
+
+/**
+ * 保存地图
+ * @param formEl
+ * @returns
+ */
+const handleSave = async (formEl: FormInstance | undefined) => {
+  if (!formEl) return
+  await formEl.validate(async (valid, fields) => {
+    if (valid) {
+      const { name, description } = mapInfo.value
+      const params = {
+        name,
+        description,
+        width: stageConfig.value.width,
+        height: stageConfig.value.height,
+        obstacles: [...obstacles.value],
+        minThreshold: minThreshold.value,
+        dividColor: dividColor.value,
+      }
+      await createMap(params as CreateMapDto)
+      modalVisiable.value = false
+    } else {
+      console.log('error submit!!', fields)
+    }
+  })
+}
 const stageConfig = ref({
   width: 820,
   height: 580,
 })
-const selectedMap = ref<string>('')
+const mapInfo = ref<{ name: string; description: string }>({ name: '', description: '' })
+const selectedMap = ref<number>()
+//加载我的地图列表
 onMounted(async () => {
-  const res = await getMapList()
-  console.log(res)
+  const data = await getMapList()
+  mapList.value = data
 })
 //最小分割阈值
 const minThreshold = ref<number>(20)
 const dividColor = ref<string>('#0077ff')
-const selectedElement = ref<{
-  type: 'circle' | 'rectangle' | '无'
-  index: number
-  config: INode
-}>({
-  type: '无',
-  index: -1,
-  config: {
-    x: 0,
-    y: 0,
-    width: 0,
-    height: 0,
-    radius: 0,
-    fill: '#000',
-    stroke: '#000',
-    strokeWidth: 2,
-    draggable: true,
-    isDragging: false,
-  },
+const selectedElement = ref({
+  id: '',
+  x: 0,
+  y: 0,
+  width: 0,
+  height: 0,
+  radius: 0,
+  fill: '#000',
+  stroke: '#0077ff',
+  strokeWidth: 2,
+  type: 'circle',
 })
 
-const obstacles: Ref<{
-  circles: CircleConfig[]
-  rectangles: RectangleConfig[]
-}> = ref({
-  circles: [],
-  rectangles: [],
+const obstacles = ref<Obstacles[]>([])
+const circles = computed(() => {
+  return obstacles.value.filter((item) => item.type === 'circle')
+})
+const rectangles = computed(() => {
+  return obstacles.value.filter((item) => item.type === 'rectangle')
 })
 
-function addObstacle(type: string) {
+
+const addObstacle = (type: string) => {
   if (type === 'circle') {
-    obstacles.value.circles.push({
+    obstacles.value.push({
       type: 'circle',
       x: 100,
       y: 100,
@@ -213,11 +280,11 @@ function addObstacle(type: string) {
       fill: 'black',
       stroke: 'black',
       strokeWidth: 0,
-      draggable: true,
-      isDragging: false,
+      draggable: true, // 修正拼写错误
+      isDraging: false,
     })
   } else if (type === 'rectangle') {
-    obstacles.value.rectangles.push({
+    obstacles.value.push({
       type: 'rectangle',
       x: 200,
       y: 150,
@@ -226,164 +293,55 @@ function addObstacle(type: string) {
       fill: 'black',
       stroke: 'black',
       strokeWidth: 0,
-      draggable: true,
-      isDragging: false,
+      draggable: true, // 修正拼写错误
+      isDraging: false,
     })
   }
 }
 const clearObstacles = () => {
-  obstacles.value.circles = []
-  obstacles.value.rectangles = []
+  obstacles.value = []
 }
 // 更新障碍物样式
-function updateObstacleStyle(
-  type: 'circle' | 'rectangle',
-  index: number,
-  style: Partial<CircleConfig | RectangleConfig>,
-) {
-  if (type === 'circle') {
-    Object.assign(obstacles.value.circles[index], style)
-  } else if (type === 'rectangle') {
-    Object.assign(obstacles.value.rectangles[index], style)
-  }
+function updateObstacleStyle(type: IComponentShapeType, id: string, style: Partial<Obstacles>) {
+  console.log(type, id, style)
 }
 
 // 选择障碍物
-function selectObstacle(type: 'circle' | 'rectangle', index: number) {
-  // Reset previous selection
-  if (selectedElement.value.type !== '无') {
-    updateObstacleStyle(selectedElement.value.type, selectedElement.value.index, {
-      stroke: 'black',
-      strokeWidth: 0,
-    })
-  }
-
-  // Highlight the new selection
-  updateObstacleStyle(type, index, {
-    stroke: '#0077ff',
-    strokeWidth: 2,
-  })
-
-  // Update selected element
-  const target =
-    type === 'circle' ? obstacles.value.circles[index] : obstacles.value.rectangles[index]
-  selectedElement.value = {
-    type,
-    index,
-    config: { ...target },
-  }
+function selectObstacle(el: Obstacles) {
+  console.log(el)
 }
 
 // 拖动开始时的处理函数
-function handleDragStart(
-  event: Konva.KonvaEventObject<DragEvent>,
-  type: 'circle' | 'rectangle',
-  index: number,
-) {
-  updateObstacleStyle(type, index, {
-    isDragging: true,
-    stroke: '#0077ff',
-    strokeWidth: 2,
-  })
-  selectObstacle(type, index)
+function handleDragStart(el: Obstacles) {
+  console.log(el)
 }
 
-function handleDragEnd(type: 'circle' | 'rectangle', index: number) {
-  updateObstacleStyle(type, index, {
-    isDragging: false,
-    strokeWidth: 0,
-  })
-  resetSelectedElement()
+function handleDragEnd(item: Obstacles) {
+  console.log(item)
 }
 // 重置选中元素
-function resetSelectedElement() {
-  selectedElement.value.type = '无'
-  selectedElement.value.index = -1
-  selectedElement.value.config = {
+const resetSelectedElement = () => {
+  selectedElement.value = {
+    id: '',
     x: 0,
     y: 0,
     width: 0,
     height: 0,
     radius: 0,
     fill: '#000',
-    stroke: '#000',
+    stroke: '#0077ff',
     strokeWidth: 2,
-    draggable: true,
-    isDragging: false,
+    type: 'circle',
   }
 }
 // 拖动时更新位置
-function onDragMove(
-  event: Konva.KonvaEventObject<DragEvent>,
-  type: 'circle' | 'rectangle',
-  index: number,
-) {
+function onDragMove(event: Konva.KonvaEventObject<DragEvent>, el: Obstacles) {
   const shape = event.target
-  const { x, y } = shape.position()
-  if (type === 'circle') {
-    obstacles.value.circles[index].x = x
-    obstacles.value.circles[index].y = y
-    if (selectedElement.value?.type === 'circle' && selectedElement.value.index === index) {
-      selectedElement.value.config.x = x
-      selectedElement.value.config.y = y
-    }
-  } else if (type === 'rectangle') {
-    obstacles.value.rectangles[index].x = x
-    obstacles.value.rectangles[index].y = y
-    if (selectedElement.value?.type === 'rectangle' && selectedElement.value.index === index) {
-      selectedElement.value.config.x = x
-      selectedElement.value.config.y = y
-    }
-  }
+  console.log(shape, el)
 }
 
 // 更新选中元素的配置
-function updateSelectedElement() {
-  const { type, index, config } = selectedElement.value
-  if (type === 'circle') {
-    obstacles.value.circles[index] = { ...config } as CircleConfig
-  } else if (type === 'rectangle') {
-    obstacles.value.rectangles[index] = { ...config } as RectangleConfig
-  }
-}
-
-const saveObstacles = async () => {
-  const data = {
-    width: stageConfig.value?.width,
-    height: stageConfig.value?.height,
-    obstacles: {
-      circle: [
-        ...obstacles.value.circles.map((item) => {
-          return {
-            shape: item.type,
-            x: item.x,
-            y: item.y,
-            radius: item.radius,
-            fill: item.fill,
-            stroke: item.stroke,
-            strokeWidth: item.strokeWidth,
-          }
-        }),
-      ],
-      rectangle: [
-        ...obstacles.value.rectangles.map((item) => {
-          return {
-            shape: item.type,
-            x: item.x,
-            y: item.y,
-            width: item.width,
-            height: item.height,
-            fill: item.fill,
-            stroke: item.stroke,
-            strokeWidth: item.strokeWidth,
-          }
-        }),
-      ],
-    },
-  }
-  const res = await createMap(data)
-  console.log(res)
-}
+function updateSelectedElement() {}
 
 // 动画绘制线条函数
 function animateLineDrawing(line: Konva.Line, isHorizontal: boolean, duration: number) {
@@ -420,15 +378,15 @@ function drawQuadTreeWithAnimation(
   width: number,
   height: number,
   threshold: number,
-  obstacles: { x: number; y: number; width: number; height: number; radius?: number }[],
+  obstacles: Obstacles[],
   duration = 0.5,
 ) {
   // 检查当前区域是否包含障碍物
   const containsObstacle = obstacles.some((obstacle) => {
     const obstacleX = obstacle.x
     const obstacleY = obstacle.y
-    const obstacleWidth = obstacle.width || obstacle.radius! * 2
-    const obstacleHeight = obstacle.height || obstacle.radius! * 2
+    const obstacleWidth = obstacle.width!
+    const obstacleHeight = obstacle.height!
 
     return (
       obstacleX + obstacleWidth > x &&
@@ -503,31 +461,77 @@ function drawQuadTreeWithAnimation(
   }, duration * 1000) // 延迟递归，等待当前分割动画完成
 }
 
-// 可视化四叉树分割
-function visualizeQuadTreeWithAnimation() {
-  const stage = Konva.stages[0] // 假设第一个 stage 是画板
-  //判断layer的数量
+const clearCanvans = () => {
+  const stage = Konva.stages[0]
   const layers = stage.getLayers()
   if (layers.length > 1) {
-    layers[1].destroy() // 删除之前的图层
+    layers[1].destroy()
   }
-  const layer = new Konva.Layer()
-
-  const { width, height } = stage.size()
-  // 获取所有障碍物
-  const allObstacles = [
-    ...obstacles.value.circles.map((circle) => ({
-      x: circle.x - circle.radius,
-      y: circle.y - circle.radius,
-      width: circle.radius * 2,
-      height: circle.radius * 2,
-    })),
-    ...obstacles.value.rectangles,
+}
+const allObstacles = computed(() => {
+  return [
+    ...circles.value.map((item) => {
+      return {
+        ...item,
+        x: item.x - item.radius!,
+        y: item.y - item.radius!,
+        width: item.radius! * 2,
+        height: item.radius! * 2,
+      }
+    }),
+    ...rectangles.value.map((item) => {
+      return {
+        ...item,
+        x: item.x,
+        y: item.y,
+        width: item.width,
+        height: item.height,
+      }
+    }),
   ]
+})
+// 在图层上绘制四叉树节点的中心点
+function drawQuadTreeCenters(node: QuadTreeNode, layer: Konva.Layer): void {
+  // 绘制当前节点的中心点
+  const centerCircle = new Konva.Circle({
+    x: node.centerX,
+    y: node.centerY,
+    radius: 3,
+    fill: '#ff0000',
+  });
 
-  drawQuadTreeWithAnimation(layer, 0, 0, width, height, minThreshold.value, allObstacles)
+  // 添加坐标文本
+  const text = new Konva.Text({
+    x: node.centerX + 5,
+    y: node.centerY - 5,
+    text: `${node.centerX.toFixed(0)}, ${node.centerY.toFixed(0)}`,
+    fontSize: 10,
+    fontFamily: 'Arial',
+    fill: 'black'
+  });
 
-  stage.add(layer)
+  layer.add(centerCircle);
+  layer.add(text);
+
+  // 递归绘制子节点的中心点
+  if (node.children) {
+    for (const child of node.children) {
+      drawQuadTreeCenters(child, layer);
+    }
+  }
+}
+// 可视化四叉树分割
+function visualizeQuadTreeWithAnimation() {
+  clearCanvans()
+  const layer = new Konva.Layer()
+  const { width, height } = stageConfig.value
+
+  // drawQuadTreeWithAnimation(layer, 0, 0, width, height, minThreshold.value, allObstacles.value)
+  const rootNode = buildQuadTree(width,height,minThreshold.value,allObstacles.value)
+  console.log(rootNode);
+  const quadTreeAnimator = new QuadTreeAnimator(Konva.stages[0],layer,rootNode)
+
+  Konva.stages[0].add(layer)
 }
 </script>
 
@@ -560,6 +564,16 @@ function visualizeQuadTreeWithAnimation() {
 }
 .right {
   border-left: 1px solid var(--border-color);
+}
+.map-info-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+  }
 }
 .container {
   background-color: #f0f0f0;

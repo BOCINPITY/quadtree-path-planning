@@ -1,12 +1,29 @@
+const { where } = require('sequelize');
 const Map = require('../model/mapModel');
+const { v4: uuidv4 } = require('uuid');
 
 // Create a new map
 const createMap = async (ctx) => {
     try {
-        const { name, width, height, startPoint, endPoint, obstacles } = ctx.request.body;
-        const newMap = await Map.create({ name, width, height, startPoint, endPoint, obstacles });
-        ctx.status = 201;
-        ctx.body = newMap;
+        const { name, description, width, height, minThreshold, startPoint, endPoint, obstacles, dividColor } = ctx.request.body;
+        const updatedObstacles = obstacles.map(obstacle => ({
+            ...obstacle,
+            id: uuidv4()
+        }));
+
+        await Map.create({
+            name,
+            description,
+            width,
+            height,
+            startPoint,
+            endPoint,
+            obstacles: updatedObstacles,
+            dividColor,
+            minThreshold,
+            userId: ctx.user.id
+        });
+        ctx.status = 204;
     } catch (error) {
         ctx.status = 500;
         ctx.body = { message: 'Error creating map', error };
@@ -16,7 +33,24 @@ const createMap = async (ctx) => {
 // Read all maps
 const getAllMaps = async (ctx) => {
     try {
-        const maps = await Map.findAll();
+        const maps = await Map.findAll({
+            where: {
+                userId: ctx.user.id
+            },
+            attributes: [
+                'id',
+                'name',
+                'description',
+                'width',
+                'height',
+                'startPoint',
+                'endPoint',
+                'obstacles',
+                'dividColor',
+                'minThreshold'
+            ],
+            order: [['createdAt', 'DESC']]
+        });
         ctx.status = 200;
         ctx.body = maps;
     } catch (error) {

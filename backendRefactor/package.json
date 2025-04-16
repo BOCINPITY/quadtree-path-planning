@@ -23,6 +23,7 @@
     "mysql2": "^3.14.0",
     "sequelize": "^6.37.7",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-koa": "^0.0.1"
+    "swagger-ui-koa": "^0.0.1",
+    "uuid": "^11.1.0"
   }
 }

@@ -5,8 +5,8 @@
         <img src="../../assets/logo.png" alt="" />
       </div>
       <div class="title_container">
-        <p class="title">登陆您的账号</p>
-        <span class="subtitle">登陆系统，欢迎使用我们的服务！</span>
+        <p class="title">登录您的账号</p>
+        <span class="subtitle">登录系统，欢迎使用我们的服务！</span>
       </div>
       <br />
       <div class="input_container">
@@ -30,7 +30,7 @@
         />
       </div>
       <button type="submit" class="sign-in_btn" @click.prevent="handleLogin">
-        <span>登陆</span>
+        <span>登录</span>
       </button>
     </form>
   </div>

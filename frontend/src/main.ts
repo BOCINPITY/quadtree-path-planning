@@ -6,6 +6,7 @@ import router from './router'
 import VueKonva from 'vue-konva'
 import { createPinia } from 'pinia'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate';
+import 'element-plus/dist/index.css'
 const app = createApp(App)
 const pinia = createPinia()
 

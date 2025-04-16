@@ -1,7 +1,7 @@
 <template>
   <div class="user-info">
     <el-dropdown placement="bottom">
-      <el-avatar size="medium" class="user-avatar">
+      <el-avatar class="user-avatar">
         {{ user?.name || "登录" }}
       </el-avatar>
       <template #dropdown>
