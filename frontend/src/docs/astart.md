@@ -27,8 +27,8 @@
 const heuristic = (a: QuadTreeNode, b: QuadTreeNode) => {
   return Math.abs(a.bounds.midX - b.bounds.midX) + Math.abs(a.bounds.midY - b.bounds.midY);
 };
- ```
 ```
+
 
 ### 2. 查找包含指定点的节点
 通过递归遍历四叉树，找到包含起点和终点的节点。
@@ -50,8 +50,8 @@ const findNodeContainingPoint = (root: QuadTreeNode, x: number, y: number): Quad
   }
   return null;
 };
- ```
 ```
+
 
 ### 3. 获取相邻节点
 对于当前节点，根据其位置和四叉树结构，找出其上下左右四个方向的相邻可通行节点。
@@ -77,8 +77,8 @@ function getNeighbors(node: QuadTreeNode, root: QuadTreeNode): QuadTreeNode[] {
   }
   return neighbors;
 }
- ```
 ```
+
 
 ### 4. A* 算法核心逻辑
 - 初始化开放列表 openSet 和关闭列表 closedSet ，将起点加入开放列表。
@@ -141,7 +141,6 @@ function aStar(start: QuadTreeNode, end: QuadTreeNode, root: QuadTreeNode): Quad
 
   return null;
 }
- ```
 ```
 
 ## 四、路径规划流程
@@ -172,7 +171,6 @@ const handlePathFinding = () => {
     }
   }
 };
- ```
 ```
 
 ## 五、优势与应用场景
