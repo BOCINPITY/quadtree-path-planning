@@ -15,4 +15,9 @@ export interface ObstaclesDto {
 export interface Obstacles extends ObstaclesDto {
   draggable: boolean
   isDraging: boolean
+  isActive: boolean
+}
+
+export interface SelectedObstaclesDto extends Obstacles {
+  type: IComponentShapeType | ''
 }

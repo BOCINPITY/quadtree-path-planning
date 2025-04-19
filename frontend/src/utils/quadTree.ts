@@ -1,4 +1,5 @@
 import type { Obstacles } from '@/@types/dto'
+
 // 四叉树节点定义
 export interface QuadTreeNode {
   bounds: {
@@ -11,7 +12,12 @@ export interface QuadTreeNode {
   }
   isLeaf: boolean
   children?: QuadTreeNode[]
-  obstacleCount?: number
+  obstacleCount: number
+  isWalkable: boolean // 新增属性，判断节点是否可通行
+  gCost?: number // A* 算法中的 g 值
+  hCost?: number // A* 算法中的 h 值
+  fCost?: number // A* 算法中的 f 值
+  parent?: QuadTreeNode // A* 算法中的父节点
 }
 
 export interface QuadTreeRequest {
@@ -20,65 +26,79 @@ export interface QuadTreeRequest {
   obstacles: Obstacles[]
   minThreshold: number
 }
+
+// 辅助函数：计算某个区域内的障碍物数量
+function countObstaclesInBounds(obstacles: Obstacles[], bounds: {
+  x: number
+  y: number
+  width: number
+  height: number
+}): number {
+  return obstacles.filter((obstacle) => {
+    if (obstacle.type === 'circle') {
+      const circleX = obstacle.x
+      const circleY = obstacle.y
+      const radius = obstacle.radius!
+      const closestX = Math.max(bounds.x, Math.min(circleX, bounds.x + bounds.width))
+      const closestY = Math.max(bounds.y, Math.min(circleY, bounds.y + bounds.height))
+      const distanceX = circleX - closestX
+      const distanceY = circleY - closestY
+      return distanceX * distanceX + distanceY * distanceY < radius * radius
+    } else {
+      const rectX = obstacle.x
+      const rectY = obstacle.y
+      const rectW = obstacle.width!
+      const rectH = obstacle.height!
+      return rectX < bounds.x + bounds.width && rectX + rectW > bounds.x && rectY < bounds.y + bounds.height && rectY + rectH > bounds.y
+    }
+  }).length
+}
+
 export function buildQuadTreeFrontend(request: QuadTreeRequest): QuadTreeNode {
   const { width, height, obstacles, minThreshold } = request
 
   function recursiveBuild(x: number, y: number, w: number, h: number): QuadTreeNode {
+    const bounds = {
+      x,
+      y,
+      width: w,
+      height: h,
+      midX: x + w / 2,
+      midY: y + h / 2,
+    }
+    const obstacleCount = countObstaclesInBounds(obstacles, bounds)
     const node: QuadTreeNode = {
-      bounds: {
-        x,
-        y,
-        width: w,
-        height: h,
-        midX: x + w / 2,
-        midY: y + h / 2,
-      },
+      bounds,
       isLeaf: true,
+      obstacleCount,
+      isWalkable: obstacleCount === 0 // 无障碍物则可通行
     }
 
-    // 检查当前区域是否包含障碍物
-    const containsObstacle = obstacles.some((obstacle) => {
-      if (obstacle.type === 'circle') {
-        // 圆形障碍物检测
-        const circleX = obstacle.x
-        const circleY = obstacle.y
-        const radius = obstacle.radius!
-
-        // 检测圆形与矩形区域是否相交
-        const closestX = Math.max(x, Math.min(circleX, x + w))
-        const closestY = Math.max(y, Math.min(circleY, y + h))
-        const distanceX = circleX - closestX
-        const distanceY = circleY - closestY
-
-        return distanceX * distanceX + distanceY * distanceY < radius * radius
-      } else {
-        // 矩形障碍物检测
-        const rectX = obstacle.x
-        const rectY = obstacle.y
-        const rectW = obstacle.width!
-        const rectH = obstacle.height!
-
-        // AABB碰撞检测
-        return rectX < x + w && rectX + rectW > x && rectY < y + h && rectY + rectH > y
-      }
-    })
-
     // 如果区域不包含障碍物或已经达到最小分割阈值，则停止分割
-    if (!containsObstacle || w <= minThreshold || h <= minThreshold) {
+    if (obstacleCount === 0 || w <= minThreshold || h <= minThreshold) {
       return node
     }
 
-    // 需要分割
-    node.isLeaf = false
-    node.children = [
+    // 尝试分割
+    const children = [
       recursiveBuild(x, y, w / 2, h / 2), // 左上
       recursiveBuild(x + w / 2, y, w / 2, h / 2), // 右上
       recursiveBuild(x, y + h / 2, w / 2, h / 2), // 左下
       recursiveBuild(x + w / 2, y + h / 2, w / 2, h / 2), // 右下
-    ]
+    ];
 
-    return node
+    const totalChildObstacleCount = children.reduce((sum, child) => sum + child.obstacleCount, 0)
+
+    // 如果子节点的障碍物总数等于当前节点的障碍物数量，且每个子节点都有障碍物，说明可能是一个大障碍物横跨了四个象限，此时不分割
+    if (totalChildObstacleCount === obstacleCount && children.every(child => child.obstacleCount > 0)) {
+      return node;
+    } else {
+      // 否则继续分割
+      node.isLeaf = false;
+      node.children = children;
+      return node;
+    }
   }
 
-  return recursiveBuild(0, 0, width, height)
+  return recursiveBuild(0, 0, width, height);
 }
