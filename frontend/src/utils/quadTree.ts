@@ -25,6 +25,7 @@ export interface QuadTreeRequest {
   height: number
   obstacles: Obstacles[]
   minThreshold: number
+  obstacleRatioThreshold: number
 }
 
 // 辅助函数：计算某个区域内的障碍物数量
@@ -55,7 +56,7 @@ function countObstaclesInBounds(obstacles: Obstacles[], bounds: {
 }
 
 export function buildQuadTreeFrontend(request: QuadTreeRequest): QuadTreeNode {
-  const { width, height, obstacles, minThreshold } = request
+  const { width, height, obstacles, minThreshold,obstacleRatioThreshold } = request
 
   function recursiveBuild(x: number, y: number, w: number, h: number): QuadTreeNode {
     const bounds = {
@@ -67,11 +68,16 @@ export function buildQuadTreeFrontend(request: QuadTreeRequest): QuadTreeNode {
       midY: y + h / 2,
     }
     const obstacleCount = countObstaclesInBounds(obstacles, bounds)
+    const totalArea = w * h;
+    const obstacleArea = obstacleCount;
+    // 计算障碍物占比
+    const obstacleRatio = obstacleArea / totalArea;
+
     const node: QuadTreeNode = {
       bounds,
       isLeaf: true,
       obstacleCount,
-      isWalkable: obstacleCount === 0 // 无障碍物则可通行
+      isWalkable: obstacleCount <= obstacleRatioThreshold
     }
 
     // 如果区域不包含障碍物或已经达到最小分割阈值，则停止分割

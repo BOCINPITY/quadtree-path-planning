@@ -28,18 +28,34 @@
           ></el-option>
         </el-select>
       </div>
+      <div class="title">寻路算法选择</div>
+      <div class="algorithm-select">
+        <el-select v-model="selectedAlgorithm" @change="handleAlgorithmChange">
+          <el-option label="A*" :value="true"></el-option>
+          <el-option label="Dijkstra" :value="false"></el-option>
+        </el-select>
+        <div v-if="selectedAlgorithm" class="algorithm-params">
+          <div class="param-item">
+            <div class="label">启发函数选择</div>
+            <el-radio-group v-model="astarHeuristicType" @change="handleHeuristicChange">
+              <el-radio :value="true">欧式距离</el-radio>
+              <el-radio :value="false">曼哈顿距离</el-radio>
+            </el-radio-group>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="content">
-      <div class="algorithm">
-        <el-text size="large">路径规划操作按钮</el-text>
+      <div class="algorithm-operation">
+        <el-text size="small">路径规划操作按钮</el-text>
         <el-button class="operation-item" type="primary"> 上一步 </el-button>
-        <el-button class="operation-item" type="primary"> 播放 </el-button>
+        <el-button class="operation-item" type="success"> 播放 </el-button>
         <el-button class="operation-item" type="warning"> 暂停 </el-button>
         <el-button class="operation-item" type="primary"> 下一步 </el-button>
       </div>
       <div class="play-buttons">
-        <el-text size="large">分割操作按钮</el-text>
+        <el-text size="small">分割操作按钮</el-text>
         <el-button
           class="operation-item"
           type="primary"
@@ -318,8 +334,59 @@ const showContextMenu = ref(false);
 const contextMenuX = ref(0);
 const contextMenuY = ref(0);
 const selectedContextElement = ref<Obstacles | null>(null);
+const selectedAlgorithm = ref<boolean>(true);
+const handleAlgorithmChange = () => {
+  console.log("selectedAlgorithm", selectedAlgorithm.value);
+  if (!selectedAlgorithm.value) {
+    ElMessage({
+      message: "当前选择的算法为Dijkstra算法,暂未实现路径规划",
+      type: "warning",
+    });
+  }
+
+  // 清除路径图形
+  if (pathShape.value) {
+    pathShape.value.destroy();
+    pathShape.value = null;
+  }
+
+  // 清除临时图层的内容
+  tempLayer.value.destroyChildren();
+  tempLayer.value.batchDraw();
+
+  // 清空寻路步骤记录
+  pathFindingSteps.value = [];
+
+  // 可以选择清除动画步骤和重置当前步骤
+  animationSteps.value = [];
+  currentStep.value = 0;
+
+  // 重新绘制基础图层
+  const stage = Konva.stages[0];
+  if (stage) {
+    const baseLayer = stage.getLayers().find((layer) => layer.id() === "baseLayer");
+    if (baseLayer) {
+      baseLayer.batchDraw();
+    }
+  }
+};
+const astarHeuristicType = ref<boolean>(false);
+const handleHeuristicChange = () => {
+  console.log(
+    "A* 启发函数已切换为:",
+    astarHeuristicType.value ? "欧式距离" : "曼哈顿距离"
+  );
+};
 //路径图形
 const pathShape = ref<Konva.Line | null>(null);
+//寻路步骤
+const pathFindingSteps = ref<
+  {
+    openSet: QuadTreeNode[];
+    closedSet: QuadTreeNode[];
+    current: QuadTreeNode | null;
+  }[]
+>([]);
 const showCenterPoint = ref(false);
 const centerPointsConfig = ref<Konva.CircleConfig>({
   radius: 2,
@@ -334,6 +401,7 @@ const persistentLayer = new Konva.Layer();
 const mapList = ref<GetMapListDto[]>();
 const modalVisiable = ref(false);
 const animationDuration = ref(0.5);
+
 const rules = {
   name: [{ required: true, message: "地图名称不能为空", trigger: "blur" }],
   description: [{ required: true, message: "地图描述不能为空", trigger: "blur" }],
@@ -346,10 +414,24 @@ const isPaused = ref(false);
 const generateId = () => {
   return uuidv4();
 };
+/**
+ *
+ * @param a
+ * @param b
+ * @param fnc 默认false 为欧式距离，true为曼哈顿距离
+ */
 const heuristic = (a: QuadTreeNode, b: QuadTreeNode) => {
-  return (
-    Math.abs(a.bounds.midX - b.bounds.midX) + Math.abs(a.bounds.midY - b.bounds.midY)
-  );
+  //曼哈顿距离
+  if (astarHeuristicType.value) {
+    return (
+      Math.abs(a.bounds.midX - b.bounds.midX) + Math.abs(a.bounds.midY - b.bounds.midY)
+    );
+  } else {
+    //欧式距离
+    const dx = a.bounds.midX - b.bounds.midX;
+    const dy = a.bounds.midY - b.bounds.midY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
 };
 const findNodeContainingPoint = (
   root: QuadTreeNode,
@@ -386,6 +468,10 @@ const getNeighbors = (node: QuadTreeNode, root: QuadTreeNode): QuadTreeNode[] =>
     { dx: 1, dy: 0 }, // 右
     { dx: 0, dy: -1 }, // 上
     { dx: 0, dy: 1 }, // 下
+    { dx: -1, dy: -1 }, // 左上
+    { dx: -1, dy: 1 }, // 左下
+    { dx: 1, dy: -1 }, // 右上
+    { dx: 1, dy: 1 }, // 右下
   ];
 
   for (const dir of directions) {
@@ -421,7 +507,11 @@ const aStar = (
       }
     }
     const current = openSet[currentIndex];
-
+    pathFindingSteps.value.push({
+      openSet: [...openSet],
+      closedSet: [...closedSet],
+      current,
+    });
     if (current === end) {
       const path: QuadTreeNode[] = [];
       let temp = current;
@@ -458,7 +548,7 @@ const aStar = (
   return null;
 };
 
-const handlePathFinding = () => {
+const handlePathFinding = async () => {
   if (!startPoint.value || !endPoint.value) {
     ElMessage.warning("请先设置起点和终点");
     return;
@@ -470,6 +560,7 @@ const handlePathFinding = () => {
     height,
     obstacles: obstacles.value,
     minThreshold: minThreshold.value,
+    obstacleRatioThreshold: 0.3,
   });
 
   const startNode = findNodeContainingPoint(
@@ -480,17 +571,84 @@ const handlePathFinding = () => {
   const endNode = findNodeContainingPoint(quadTree, endPoint.value.x, endPoint.value.y);
 
   if (startNode && endNode) {
+    pathFindingSteps.value = []; // 清空之前的路径
     const path = aStar(startNode, endNode, quadTree);
     if (path) {
       console.log("找到路径:", path);
       // 可以在这里将路径可视化
-      visualizePath(path); // 调用可视化路径方法
+      await visualizePathFindingProcess(quadTree); // 调用可视化路径方法
     } else {
       console.log("未找到路径");
       ElMessage.warning("未找到可行路径");
     }
   }
 };
+// 可视化寻路过程
+const visualizePathFindingProcess = async (quadTree: QuadTreeNode) => {
+  const stage = Konva.stages[0];
+  if (!stage) return;
+
+  // 移除原有的 tempLayer 子元素并添加到舞台
+  tempLayer.value.destroyChildren();
+  stage.add(tempLayer.value as Konva.Layer);
+
+  for (const step of pathFindingSteps.value) {
+    tempLayer.value.destroyChildren();
+
+    // 可视化开放列表
+    step.openSet.forEach((node) => {
+      const rect = new Konva.Rect({
+        x: node.bounds.x,
+        y: node.bounds.y,
+        width: node.bounds.width,
+        height: node.bounds.height,
+        fill: "rgba(0, 255, 0, 0.3)",
+      });
+      tempLayer.value.add(rect);
+    });
+
+    // 可视化关闭列表
+    step.closedSet.forEach((node) => {
+      const rect = new Konva.Rect({
+        x: node.bounds.x,
+        y: node.bounds.y,
+        width: node.bounds.width,
+        height: node.bounds.height,
+        fill: "rgba(255, 0, 0, 0.3)",
+      });
+      tempLayer.value.add(rect);
+    });
+
+    // 可视化当前节点
+    if (step.current) {
+      const rect = new Konva.Rect({
+        x: step.current.bounds.x,
+        y: step.current.bounds.y,
+        width: step.current.bounds.width,
+        height: step.current.bounds.height,
+        fill: "rgba(0, 0, 255, 0.3)",
+      });
+      tempLayer.value.add(rect);
+    }
+
+    tempLayer.value.batchDraw();
+    await new Promise((resolve) => setTimeout(resolve, 500)); // 控制动画速度
+  }
+
+  // 最后显示最终路径
+  const path = aStar(
+    findNodeContainingPoint(quadTree, startPoint.value!.x, startPoint.value!.y)!,
+    findNodeContainingPoint(quadTree, endPoint.value!.x, endPoint.value!.y)!,
+    quadTree
+  );
+  if (path) {
+    visualizePath(path);
+  }
+
+  // 可选择是否销毁 tempLayer 子元素
+  tempLayer.value.destroyChildren();
+};
+
 // 可视化路径方法
 const visualizePath = (path: QuadTreeNode[]) => {
   const stage = Konva.stages[0];
@@ -506,14 +664,22 @@ const visualizePath = (path: QuadTreeNode[]) => {
 
   // 生成路径点数组
   const points: number[] = [];
+  //添加起点坐标
+  if (startPoint.value) {
+    points.push(startPoint.value.x, startPoint.value.y);
+  }
+
   path.forEach((node) => {
     points.push(node.bounds.midX, node.bounds.midY);
   });
-
+  // 添加终点坐标
+  if (endPoint.value) {
+    points.push(endPoint.value.x, endPoint.value.y);
+  }
   // 创建路径图形
   pathShape.value = new Konva.Line({
     points,
-    stroke: "blue",
+    stroke: "#9e2302",
     strokeWidth: 3,
     lineCap: "round",
     lineJoin: "round",
@@ -653,13 +819,15 @@ const setStartPoint = () => {
         startShape.value.destroy();
       }
       startShape.value = new Konva.Image({
-        //图标的最下边中心点为坐标原点
-        x: pos.x,
+        x: pos.x, // 使图标中心对准点击位置
         y: pos.y,
         image: startImageObj,
         width: startImageObj.width,
         height: startImageObj.height,
-
+        offset: {
+          x: startImageObj.width / 2,
+          y: startImageObj.height,
+        },
         name: "startPoint",
       });
       const baseLayer = stage.getLayers().find((layer) => {
@@ -686,12 +854,15 @@ const setEndPoint = () => {
         endShape.value.destroy();
       }
       endShape.value = new Konva.Image({
-        x: pos.x - endImageObj.width / 2, // 使图标中心对准点击位置
-        y: pos.y - endImageObj.height / 2,
+        x: pos.x, // 使图标中心对准点击位置
+        y: pos.y,
         image: endImageObj,
         width: endImageObj.width,
         height: endImageObj.height,
-
+        offset: {
+          x: endImageObj.width / 2,
+          y: endImageObj.height,
+        },
         name: "endPoint",
       });
       const baseLayer = stage.getLayers().find((layer) => {
@@ -909,13 +1080,6 @@ const stepForward = () => {
   });
 };
 
-const stepBackward = () => {
-  if (currentStep.value > 0) {
-    currentStep.value--;
-    visualizeCurrentStep();
-  }
-};
-
 const visualizeQuadTreeWithAnimation = () => {
   clearCanvans();
   const { width, height } = stageConfig.value;
@@ -924,6 +1088,7 @@ const visualizeQuadTreeWithAnimation = () => {
     height,
     obstacles: allObstacles.value,
     minThreshold: minThreshold.value,
+    obstacleRatioThreshold: 0.3,
   });
 
   animationSteps.value = generateQuadTreeSteps(quadTree);
@@ -1130,6 +1295,7 @@ const addObstacle = (type: IComponentShapeType) => {
 .left {
   border-right: 1px solid var(--border-color);
 }
+.algorithm-select,
 .map-list {
   display: flex;
   margin: 10px;
@@ -1138,6 +1304,23 @@ const addObstacle = (type: IComponentShapeType) => {
   background-color: white;
   padding: 10px;
   border-radius: 16px;
+}
+.algorithm-params {
+  margin-top: 10px;
+  padding: 10px;
+  background-color: white;
+  border-radius: 8px;
+}
+
+.param-item {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+}
+
+.param-item .label {
+  min-width: 100px;
+  color: #000;
 }
 .right {
   border-left: 1px solid var(--border-color);
@@ -1218,7 +1401,7 @@ const addObstacle = (type: IComponentShapeType) => {
   gap: 10px;
   flex-direction: column;
 }
-.container .content .algorithm {
+.container .content .algorithm-operation {
   background-color: #fff;
   position: absolute;
   z-index: 1000;
@@ -1228,6 +1411,7 @@ const addObstacle = (type: IComponentShapeType) => {
   border-bottom-right-radius: 16px;
   left: 0;
   display: flex;
+  max-width: 120px;
   gap: 10px;
   flex-direction: column;
 }
