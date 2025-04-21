@@ -47,52 +47,43 @@
     </div>
 
     <div class="content">
-      <div class="algorithm-operation">
-        <el-text size="small">路径规划操作按钮</el-text>
-        <el-button class="operation-item" type="primary"> 上一步 </el-button>
-        <el-button class="operation-item" type="success"> 播放 </el-button>
-        <el-button class="operation-item" type="warning"> 暂停 </el-button>
-        <el-button class="operation-item" type="primary"> 下一步 </el-button>
+      <div class="play-buttons algorithm">
+        <el-text>路径规划操作按钮</el-text>
+        <div class="btns">
+          <div class="operation-item">
+            <el-icon size="20"><ArrowLeftBold /></el-icon>
+          </div>
+
+          <div class="operation-item">
+            <el-icon size="20">
+              <VideoPlay v-if="true" style="color: orange" />
+              <VideoPause style="color: red" v-else />
+            </el-icon>
+          </div>
+
+          <div class="operation-item" type="primary">
+            <el-icon size="20"><ArrowRightBold /></el-icon>
+          </div>
+        </div>
       </div>
       <div class="play-buttons">
-        <el-text size="small">分割操作按钮</el-text>
-        <el-button
-          class="operation-item"
-          type="primary"
-          :disabled="currentStep === 0 || !hasAnimationSteps || isPlaying"
-        >
-          上一步
-        </el-button>
-        <el-button
-          class="operation-item"
-          type="success"
-          @click="autoPlaySteps"
-          :disabled="
-            isAnimating || currentStep === animationSteps.length - 1 || !hasAnimationSteps
-          "
-        >
-          播放
-        </el-button>
+        <el-text>分割操作按钮</el-text>
+        <div class="btns">
+          <div class="operation-item" @click="stepBackward">
+            <el-icon size="20"><ArrowLeftBold /></el-icon>
+          </div>
 
-        <el-button
-          class="operation-item"
-          type="warning"
-          @click="togglePause"
-          :disabled="!isPlaying || !hasAnimationSteps"
-        >
-          {{ "暂停" }}
-        </el-button>
+          <div class="operation-item" @click="togglePause">
+            <el-icon size="20">
+              <VideoPlay v-if="!isPlaying" style="color: orange" />
+              <VideoPause style="color: red" v-else />
+            </el-icon>
+          </div>
 
-        <el-button
-          class="operation-item"
-          type="primary"
-          @click="stepForward"
-          :disabled="
-            currentStep === animationSteps.length - 1 || !hasAnimationSteps || isPlaying
-          "
-        >
-          下一步
-        </el-button>
+          <div class="operation-item" type="primary" @click="stepForward">
+            <el-icon size="20"><ArrowRightBold /></el-icon>
+          </div>
+        </div>
       </div>
 
       <div class="operation">
@@ -111,7 +102,7 @@
           type="success"
           @click="visualizeQuadTreeWithAnimation"
         >
-          四叉分割可视化
+          四叉树构建
         </el-button>
         <el-button class="operation-item" type="primary" @click="handlePathFinding">
           寻路规划可视化
@@ -323,10 +314,19 @@ import { gsap } from "gsap";
 import { v4 as uuidv4 } from "uuid";
 import startIcon from "@/assets/images/startpoint.png";
 import endIcon from "@/assets/images/endpoint.png";
+import {
+  ArrowLeftBold,
+  ArrowRightBold,
+  VideoPlay,
+  VideoPause,
+} from "@element-plus/icons-vue";
 const startPoint = ref<{ x: number; y: number } | null>(null);
 const endPoint = ref<{ x: number; y: number } | null>(null);
 const startShape = ref<Konva.Image | null>(null);
 const endShape = ref<Konva.Image | null>(null);
+const persistentLayer = ref(new Konva.Layer());
+// 新增一个数组来记录每一步添加的分割线
+const stepDividingLines = ref<Konva.Line[][]>([]);
 // 定义图片对象
 const startImageObj = new window.Image();
 const endImageObj = new window.Image();
@@ -397,7 +397,6 @@ const centerPointsConfig = ref<Konva.CircleConfig>({
 const showStageContextMenu = ref(false);
 const mapInfoFormRef = ref<FormInstance>();
 const tempLayer = ref(new Konva.Layer());
-const persistentLayer = new Konva.Layer();
 const mapList = ref<GetMapListDto[]>();
 const modalVisiable = ref(false);
 const animationDuration = ref(0.5);
@@ -408,9 +407,13 @@ const rules = {
 };
 const animationSteps = ref<QuadTreeNode[]>([]);
 const currentStep = ref(0);
-const isAnimating = ref(false);
 const isPlaying = ref(false);
-const isPaused = ref(false);
+const getDividButtonText = () => {
+  if (currentStep.value >= animationSteps.value.length) {
+    return "播放";
+  }
+  return isPlaying.value ? "暂停" : "播放";
+};
 const generateId = () => {
   return uuidv4();
 };
@@ -780,7 +783,6 @@ const selectedMap = ref<number>();
 
 onMounted(async () => {
   mapList.value = await getMapList();
-  Konva.stages[0]?.add(persistentLayer);
   // 加载图片
   startImageObj.src = startIcon;
   endImageObj.src = endIcon;
@@ -910,31 +912,6 @@ const getSelectedElementName = () => {
   return matchedItem?.name || "当前无选中障碍物";
 };
 
-const autoPlaySteps = async () => {
-  if (isPlaying.value) return;
-  isPlaying.value = true;
-  isPaused.value = false;
-
-  while (currentStep.value < animationSteps.value.length - 1 && !isPaused.value) {
-    await stepForward();
-    await new Promise((resolve) => {
-      if (!isAnimating.value) resolve(true);
-      const check = setInterval(() => {
-        if (!isAnimating.value) {
-          clearInterval(check);
-          resolve(true);
-        }
-      }, 100);
-    });
-  }
-  if (!isPaused.value) {
-    ElMessage({
-      type: "success",
-      message: "分割完成",
-    });
-  }
-  isPlaying.value = false;
-};
 // 监听 selectedElement 的变化
 watch(
   selectedElement,
@@ -960,12 +937,7 @@ watch(
   },
   { deep: true }
 );
-const togglePause = () => {
-  isPaused.value = !isPaused.value;
-  if (!isPaused.value && currentStep.value < animationSteps.value.length - 1) {
-    autoPlaySteps();
-  }
-};
+
 const setActiveElement = (el: Obstacles) => {
   clearActiveElement();
   const element = obstacles.value.find((item) => item.id === el.id);
@@ -1061,7 +1033,10 @@ const generateQuadTreeSteps = (root: QuadTreeNode): QuadTreeNode[] => {
 
   while (queue.length > 0) {
     const node = queue.shift()!;
-    steps.push({ ...node });
+    // 只添加非叶子节点到 steps 数组
+    if (!node.isLeaf) {
+      steps.push({ ...node });
+    }
     if (!node.isLeaf && node.children) {
       queue.push(...node.children);
     }
@@ -1069,156 +1044,189 @@ const generateQuadTreeSteps = (root: QuadTreeNode): QuadTreeNode[] => {
   return steps;
 };
 
-const stepForward = () => {
-  return new Promise<void>((resolve) => {
+// 前进一步
+const stepForward = async () => {
+  try {
     if (currentStep.value < animationSteps.value.length - 1) {
       currentStep.value++;
-      visualizeCurrentStep().then(resolve);
+      await visualizeCurrentStep();
     } else {
-      resolve();
+      ElMessage.info("已经是最后一步了");
     }
-  });
+  } catch (error) {
+    console.error("前进一步时出错:", error);
+    ElMessage.error("前进一步时发生错误，请检查控制台日志");
+  }
+};
+// 后退一步
+const stepBackward = async () => {
+  try {
+    if (currentStep.value > 0) {
+      // 移除当前步骤的分割线
+      const linesToRemove = stepDividingLines.value[currentStep.value];
+      if (linesToRemove) {
+        linesToRemove.forEach((line) => line.destroy());
+      }
+      // 从 stepDividingLines 中移除当前步骤的记录
+      stepDividingLines.value.splice(currentStep.value, 1);
+      currentStep.value--;
+      persistentLayer.value.batchDraw();
+    } else {
+      ElMessage.info("已经是第一步了");
+    }
+  } catch (error) {
+    console.error("后退一步时出错:", error);
+    ElMessage.error("后退一步时发生错误，请检查控制台日志");
+  }
 };
 
-const visualizeQuadTreeWithAnimation = () => {
-  clearCanvans();
-  const { width, height } = stageConfig.value;
-  const quadTree = buildQuadTreeFrontend({
-    width,
-    height,
-    obstacles: allObstacles.value,
-    minThreshold: minThreshold.value,
-    obstacleRatioThreshold: 0.3,
-  });
+const autoPlaySteps = async () => {
+  try {
+    if (animationSteps.value.length === 0) {
+      ElMessage.error("请先创建地图或加载地图");
+      return;
+    }
+    isPlaying.value = true;
 
-  animationSteps.value = generateQuadTreeSteps(quadTree);
-  currentStep.value = 0;
-  isPlaying.value = false;
-  isPaused.value = false;
-  visualizeCurrentStep();
+    // 从当前步骤开始播放
+    while (currentStep.value < animationSteps.value.length && isPlaying.value) {
+      await visualizeCurrentStep();
+      await new Promise((resolve) => setTimeout(resolve, animationDuration.value * 1000));
+
+      // 只有在播放状态下才前进
+      if (isPlaying.value) {
+        currentStep.value++;
+      }
+    }
+    // 添加分割完成提示
+    if (currentStep.value >= animationSteps.value.length) {
+      ElMessage.success("四叉树分割已完成！");
+    }
+    isPlaying.value = false;
+  } catch (error) {
+    console.error("自动播放时出错:", error);
+    ElMessage.error("自动播放时发生错误，请检查控制台日志");
+  }
+};
+
+const togglePause = () => {
+  if (currentStep.value >= animationSteps.value.length) {
+    ElMessage.warning("请先生成四叉树步骤");
+    return;
+  }
+  isPlaying.value = !isPlaying.value;
+  ElMessage.info(isPlaying.value ? "继续播放" : "已暂停");
+  // 继续播放时如果还有步骤未完成则重新触发播放
+  if (isPlaying.value && currentStep.value++ < animationSteps.value.length) {
+    autoPlaySteps();
+  }
+};
+
+const visualizeQuadTreeWithAnimation = async () => {
+  try {
+    gsap.globalTimeline.clear();
+    // 重置状态
+    isPlaying.value = false;
+    currentStep.value = 0;
+    animationSteps.value = [];
+    tempLayer.value.destroyChildren(); // 清除临时图层的内容
+    persistentLayer.value.destroyChildren(); // 清除持久图层的内容
+    stepDividingLines.value = []; // 重置分割线记录
+
+    const { width, height } = stageConfig.value;
+    const quadTree = buildQuadTreeFrontend({
+      width,
+      height,
+      obstacles: allObstacles.value,
+      minThreshold: minThreshold.value,
+      obstacleRatioThreshold: 0.3,
+    });
+    animationSteps.value = generateQuadTreeSteps(quadTree); //层序遍历
+    currentStep.value = 0;
+    await autoPlaySteps();
+  } catch (error) {
+    console.error("可视化四叉树动画时出错:", error);
+    ElMessage.error("可视化四叉树动画时发生错误，请检查控制台日志");
+  }
+};
+
+const visualizeCurrentStep = async () => {
+  return new Promise<void>((resolve, reject) => {
+    try {
+      const stage = Konva.stages[0];
+      if (!stage) {
+        reject(new Error("未找到Stage实例"));
+        return;
+      }
+      stage.add(persistentLayer.value as Konva.Layer);
+      const currentNode = animationSteps.value[currentStep.value];
+      if (!currentNode) {
+        resolve();
+        return;
+      }
+      const { bounds, isLeaf } = currentNode;
+      const { x, y, width, height, midX, midY } = bounds;
+
+      const tl = gsap.timeline();
+      const currentStepLines: Konva.Line[] = [];
+
+      if (!isLeaf) {
+        const hLine = createDividingLine([x, midY, x, midY], dividColor.value);
+        persistentLayer.value.add(hLine);
+        currentStepLines.push(hLine);
+        tl.to(hLine.points(), {
+          duration: animationDuration.value,
+          endArray: [x, midY, x + width, midY],
+          onUpdate: () => {
+            persistentLayer.value.batchDraw();
+          },
+        });
+
+        const vLine = createDividingLine([midX, y, midX, y], dividColor.value);
+        persistentLayer.value.add(vLine);
+        currentStepLines.push(vLine);
+        tl.to(
+          vLine.points(),
+          {
+            duration: animationDuration.value,
+            endArray: [midX, y, midX, y + height],
+            onUpdate: () => {
+              persistentLayer.value.batchDraw();
+            },
+          },
+          "<"
+        );
+      }
+
+      // 记录当前步骤的分割线
+      if (stepDividingLines.value.length <= currentStep.value) {
+        stepDividingLines.value.push(currentStepLines);
+      } else {
+        stepDividingLines.value[currentStep.value] = currentStepLines;
+      }
+
+      tl.eventCallback("onComplete", () => {
+        resolve();
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
 };
 
 const createDividingLine = (points: number[], color: string) => {
   return new Konva.Line({
     points,
     stroke: color,
-    strokeWidth: 1,
+    strokeWidth: 2,
   });
-};
-
-const createCenterPoint = (x: number, y: number, isLeaf: boolean) => {
-  return new Konva.Circle({
-    x,
-    y,
-    radius: centerPointsConfig.value.radius,
-    fill: isLeaf ? centerPointsConfig.value.fill : "red",
-    stroke: centerPointsConfig.value.stroke,
-    strokeWidth: centerPointsConfig.value.strokeWidth,
-  });
-};
-
-const visualizeCurrentStep = async () => {
-  return new Promise<void>((resolve) => {
-    if (isAnimating.value) return;
-
-    const stage = Konva.stages[0];
-    tempLayer.value.destroyChildren();
-    stage?.add(tempLayer.value as Konva.Layer);
-
-    const currentNode = animationSteps.value[currentStep.value];
-    if (!currentNode) {
-      resolve();
-      return;
-    }
-
-    const { bounds, isLeaf } = currentNode;
-    const { x, y, width, height, midX, midY } = bounds;
-
-    isAnimating.value = true;
-
-    const tl = gsap.timeline();
-    const currentLayer = currentStep.value === 0 ? persistentLayer : tempLayer.value;
-
-    if (!isLeaf) {
-      const hLine = createDividingLine([x, midY, x, midY], dividColor.value);
-      currentLayer.add(hLine);
-      tl.to(hLine.points(), {
-        duration: animationDuration.value,
-        endArray: [x, midY, x + width, midY],
-        onUpdate: () => hLine.getLayer()?.batchDraw() as void,
-      });
-
-      const vLine = createDividingLine([midX, y, midX, y], dividColor.value);
-      currentLayer.add(vLine);
-      tl.to(
-        vLine.points(),
-        {
-          duration: animationDuration.value,
-          endArray: [midX, y, midX, y + height],
-          onUpdate: () => vLine.getLayer()?.batchDraw() as void,
-        },
-        "<"
-      );
-    }
-    if (showCenterPoint.value) {
-      const centerPoint = createCenterPoint(midX, midY, isLeaf);
-      currentLayer.add(centerPoint);
-      tl.fromTo(
-        centerPoint,
-        { radius: 0 },
-        { radius: 3, duration: animationDuration.value / 2 },
-        "<0.1"
-      );
-    }
-
-    tl.eventCallback("onComplete", () => {
-      isAnimating.value = false;
-      tempLayer.value.destroyChildren();
-      drawPersistentElements();
-      resolve();
-    });
-  });
-};
-
-const drawPersistentElements = () => {
-  persistentLayer.destroyChildren();
-  animationSteps.value.slice(0, currentStep.value + 1).forEach((node) => {
-    const { bounds, isLeaf } = node;
-    const { midX, midY } = bounds;
-
-    if (!isLeaf) {
-      persistentLayer.add(
-        createDividingLine(
-          [bounds.x, midY, bounds.x + bounds.width, midY],
-          dividColor.value
-        )
-      );
-      persistentLayer.add(
-        createDividingLine(
-          [midX, bounds.y, midX, bounds.y + bounds.height],
-          dividColor.value
-        )
-      );
-    }
-    if (showCenterPoint.value) {
-      persistentLayer.add(createCenterPoint(midX, midY, isLeaf));
-    }
-  });
-
-  if (!persistentLayer.getParent() && Konva.stages[0]) {
-    Konva.stages[0].add(persistentLayer);
-  }
 };
 
 const clearCanvans = () => {
   const stage = Konva.stages[0];
   if (stage) {
     stage.getLayers().forEach((layer) => {
-      if (
-        layer.id() !== "baseLayer" &&
-        layer !== persistentLayer &&
-        layer !== tempLayer.value
-      ) {
+      if (layer.id() !== "baseLayer" && layer !== tempLayer.value) {
         layer.destroy();
       }
     });
@@ -1234,14 +1242,17 @@ const initializeState = () => {
   minThreshold.value = 20;
   resetSelectedElement();
   clearCanvans();
-  persistentLayer.destroyChildren();
   tempLayer.value.destroyChildren();
 };
 
 const clearObstacles = () => {
   initializeState();
 };
-
+/**
+ * @description: 添加障碍物
+ * @param type 障碍物类型
+ * @return void
+ */
 const addObstacle = (type: IComponentShapeType) => {
   let newObstacle: Obstacles;
   const commonProps = {
@@ -1390,6 +1401,7 @@ const addObstacle = (type: IComponentShapeType) => {
 }
 .container .content .play-buttons {
   background-color: #fff;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
   position: absolute;
   z-index: 1000;
   top: 0px;
@@ -1398,9 +1410,17 @@ const addObstacle = (type: IComponentShapeType) => {
   border-bottom-right-radius: 16px;
   right: 0;
   display: flex;
-  gap: 10px;
   flex-direction: column;
 }
+.container .content .play-buttons.algorithm {
+  left: 0;
+  right: auto;
+}
+.container .content .play-buttons .btns {
+  display: flex;
+  flex-direction: row;
+}
+
 .container .content .algorithm-operation {
   background-color: #fff;
   position: absolute;
@@ -1412,13 +1432,26 @@ const addObstacle = (type: IComponentShapeType) => {
   left: 0;
   display: flex;
   max-width: 120px;
-  gap: 10px;
   flex-direction: column;
 }
 .container .content .operation-item {
   padding: 10px;
   font-size: 16px;
   margin: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.container .content .btns .operation-item {
+  color: #409eff;
+  border-radius: 16px;
+  border: 2px solid #409eff;
+}
+.container .content .btns .operation-item:hover {
+  background-color: #409eff;
+  color: #fff;
+  transition: all 0.5s;
 }
 .container .content .operation {
   position: absolute;
