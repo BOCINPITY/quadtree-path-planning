@@ -28,3 +28,24 @@
   -webkit-text-stroke-width: 0.2px;
   -moz-osx-font-smoothing: grayscale;
 }
+/* 全局滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--border-color);
+  border-radius: 16px;
+}
+::-webkit-scrollbar-track {
+  background-color: #f0f0f0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--primary-color);
+}
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--primary-color);
+}
+::-webkit-scrollbar-corner {
+  background-color: #f0f0f0;
+}

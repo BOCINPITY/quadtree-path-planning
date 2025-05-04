@@ -14,7 +14,7 @@ export interface ObstaclesDto {
 }
 export interface Obstacles extends ObstaclesDto {
   draggable: boolean
-  isDraging: boolean
+  isDragging: boolean
   isActive: boolean
 }
 
