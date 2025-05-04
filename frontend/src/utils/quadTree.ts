@@ -1,6 +1,7 @@
 import type { Obstacles } from '@/@types/dto'
+import { findNodeContainingPoint } from './pathFinding';
 
-// 四叉树节点定义
+// 四叉树节点定义，添加 neighbors 属性
 export interface QuadTreeNode {
   bounds: {
     x: number
@@ -13,11 +14,12 @@ export interface QuadTreeNode {
   isLeaf: boolean
   children?: QuadTreeNode[]
   obstacleCount: number
-  isWalkable: boolean // 新增属性，判断节点是否可通行
-  gCost?: number // A* 算法中的 g 值
-  hCost?: number // A* 算法中的 h 值
-  fCost?: number // A* 算法中的 f 值
-  parent?: QuadTreeNode // A* 算法中的父节点
+  isWalkable: boolean
+  gCost?: number
+  hCost?: number
+  fCost?: number
+  parent?: QuadTreeNode
+  neighbors?: QuadTreeNode[] // 存储邻居节点
 }
 
 export interface QuadTreeRequest {
@@ -58,8 +60,21 @@ function calculateObstacleAreaInBounds(obstacles: Obstacles[], bounds: {
   }, 0)
 }
 
+// 定义八个方向，包括斜向
+const directions = [
+  { dx: -1, dy: 0 }, // 左
+  { dx: 1, dy: 0 }, // 右
+  { dx: 0, dy: -1 }, // 上
+  { dx: 0, dy: 1 }, // 下
+  { dx: -1, dy: -1 }, // 左上
+  { dx: 1, dy: -1 }, // 右上
+  { dx: -1, dy: 1 }, // 左下
+  { dx: 1, dy: 1 }, // 右下
+];
+
 export function buildQuadTreeFrontend(request: QuadTreeRequest): QuadTreeNode {
   const { width, height, obstacles, minThreshold, obstacleRatioThreshold } = request
+  const allLeafNodes: QuadTreeNode[] = [];
 
   function recursiveBuild(x: number, y: number, w: number, h: number): QuadTreeNode {
     const bounds = {
@@ -77,13 +92,14 @@ export function buildQuadTreeFrontend(request: QuadTreeRequest): QuadTreeNode {
     const node: QuadTreeNode = {
       bounds,
       isLeaf: true,
-      obstacleCount: obstacleArea, // 使用障碍物面积代替数量
+      obstacleCount: obstacleArea,
       isWalkable: obstacleRatio <= obstacleRatioThreshold,
     }
 
     // 如果区域不包含障碍物或已经达到最小分割阈值，则停止分割
     if (obstacleArea === 0 || w <= minThreshold || h <= minThreshold || obstacleRatio < 0.01) {
-      return node
+      allLeafNodes.push(node);
+      return node;
     }
 
     // 尝试分割
@@ -96,11 +112,32 @@ export function buildQuadTreeFrontend(request: QuadTreeRequest): QuadTreeNode {
     node.isLeaf = false
     node.children = children
     return node
-
   }
 
-  return recursiveBuild(0, 0, width, height)
+  const root = recursiveBuild(0, 0, width, height);
+
+  // 为所有叶子节点计算邻居节点
+  for (const node of allLeafNodes) {
+    const neighbors: QuadTreeNode[] = [];
+    const bounds = node.bounds;
+
+    for (const dir of directions) {
+      const neighborX = bounds.midX + dir.dx * bounds.width;
+      const neighborY = bounds.midY + dir.dy * bounds.height;
+
+      // 查找邻居节点
+      const neighbor = findNodeContainingPoint(root, neighborX, neighborY);
+      if (neighbor && neighbor.isWalkable) {
+        neighbors.push(neighbor);
+      }
+    }
+
+    node.neighbors = neighbors;
+  }
+
+  return root;
 }
+
 /**
  *
  * @param root 四叉树的根节点
@@ -113,7 +150,9 @@ export const flattenQuadTree = (root: QuadTreeNode): QuadTreeNode[] => {
     if (node.isLeaf) {
       nodes.push(node);
     } else if (node.children) {
-      node.children.forEach(traverse);
+      for (const child of node.children) {
+        traverse(child);
+      }
     }
   };
   traverse(root);

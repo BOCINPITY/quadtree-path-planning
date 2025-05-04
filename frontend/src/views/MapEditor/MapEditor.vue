@@ -40,6 +40,9 @@
             <el-radio-group v-model="astarHeuristicType" @change="handleHeuristicChange">
               <el-radio :value="'euclidean'">欧式距离</el-radio>
               <el-radio :value="'manhattan'">曼哈顿距离</el-radio>
+              <el-radio :value="'diagonal'">对角距离</el-radio>
+              <el-radio :value="'chebyshev'">切比雪夫距离</el-radio>
+
             </el-radio-group>
           </div>
         </div>
@@ -542,7 +545,7 @@ const handlePathFinding = async () => {
     tempLayer.value.batchDraw();
 
     // 等待一段时间以展示动画效果
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
 
   // 渲染最终路径
