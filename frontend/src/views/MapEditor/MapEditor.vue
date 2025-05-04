@@ -7,7 +7,7 @@
           class="shapes-item"
           v-for="shape in componentShapeList"
           :key="shape.name"
-          @click="addObstacle(shape.type)"
+          @click="addObstacleHandler(shape.type)"
         >
           <i :class="`icon iconfont ${shape.icon}`"></i>
           <div class="icon-name">{{ shape.name }}</div>
@@ -30,11 +30,11 @@
       </div>
       <div class="title">寻路算法选择</div>
       <div class="algorithm-select">
-        <el-select v-model="selectedAlgorithm" @change="handleAlgorithmChange">
-          <el-option label="A*" :value="true"></el-option>
-          <el-option label="Dijkstra" :value="false"></el-option>
+        <el-select v-model="selectedAlgorithm" placeholder="请选择算法">
+          <el-option label="A*" :value="'A*'"></el-option>
+          <el-option label="Dijkstra" :value="'Dijkstra'"></el-option>
         </el-select>
-        <div v-if="selectedAlgorithm" class="algorithm-params">
+        <div v-if="selectedAlgorithm === 'A*'" class="algorithm-params">
           <div class="param-item">
             <div class="label">启发函数选择</div>
             <el-radio-group v-model="astarHeuristicType" @change="handleHeuristicChange">
@@ -51,38 +51,48 @@
         <el-text>路径规划操作按钮</el-text>
         <div class="btns">
           <div class="operation-item">
-            <el-icon size="20"><ArrowLeftBold /></el-icon>
+            <el-icon :size="operationBtnSize"><ArrowLeftBold /></el-icon>
           </div>
 
           <div class="operation-item">
-            <el-icon size="20">
+            <el-icon :size="operationBtnSize">
               <VideoPlay v-if="true" style="color: orange" />
               <VideoPause style="color: red" v-else />
             </el-icon>
           </div>
 
           <div class="operation-item" type="primary">
-            <el-icon size="20"><ArrowRightBold /></el-icon>
+            <el-icon :size="operationBtnSize"><ArrowRightBold /></el-icon>
           </div>
         </div>
       </div>
       <div class="play-buttons">
         <el-text>分割操作按钮</el-text>
+        <el-progress
+          :percentage="progressPercentage"
+          :text-inside="false"
+          :stroke-width="10"
+        />
         <div class="btns">
           <div class="operation-item" @click="stepBackward">
-            <el-icon size="20"><ArrowLeftBold /></el-icon>
+            <el-icon :size="operationBtnSize"><ArrowLeftBold /></el-icon>
           </div>
 
           <div class="operation-item" @click="togglePause">
-            <el-icon size="20">
+            <el-icon :size="operationBtnSize">
               <VideoPlay v-if="!isQuadTreeSplitPlaying" style="color: orange" />
               <VideoPause style="color: red" v-else />
             </el-icon>
           </div>
 
           <div class="operation-item" type="primary" @click="stepForward">
-            <el-icon size="20"><ArrowRightBold /></el-icon>
+            <el-icon :size="operationBtnSize"><ArrowRightBold /></el-icon>
           </div>
+          <!-- 跳过按钮 -->
+          <div class="operation-item" type="danger" @click="skipQuadTreeAnimation">
+            <el-icon :size="operationBtnSize"><Ship /></el-icon>
+          </div>
+          <!-- 进度条 -->
         </div>
       </div>
 
@@ -300,9 +310,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from "vue";
-import type { IComponentShapeType } from "@/@types/";
-import { aStar,findNodeContainingPoint } from "@/utils/aStar";
-import type {HeuristicType} from '@/utils/aStar'
+import { deleteObstacle, copyObstacle, addObstacle } from "@/utils/obstacleActions";
+import { aStar, dijkstra, findNodeContainingPoint } from "@/utils/pathFinding";
+import type { HeuristicType } from "@/utils/pathFinding";
 import { componentShapeList } from "@/utils/shapeIcons";
 import Konva from "konva";
 import type { QuadTreeNode } from "@/utils/quadTree";
@@ -313,7 +323,7 @@ import type { Obstacles, SelectedObstaclesDto } from "@/@types/dto";
 import { buildQuadTreeFrontend } from "@/utils/quadTree";
 import { ElMessage } from "element-plus";
 import { gsap } from "gsap";
-import { v4 as uuidv4 } from "uuid";
+
 import startIcon from "@/assets/images/startpoint.png";
 import endIcon from "@/assets/images/endpoint.png";
 import {
@@ -321,7 +331,11 @@ import {
   ArrowRightBold,
   VideoPlay,
   VideoPause,
+  Ship,
 } from "@element-plus/icons-vue";
+const minThreshold = ref<number>(20);
+const dividColor = ref<string>("#0077ff");
+const operationBtnSize = 14;
 const startPoint = ref<{ x: number; y: number } | null>(null);
 const endPoint = ref<{ x: number; y: number } | null>(null);
 const startShape = ref<Konva.Image | null>(null);
@@ -337,15 +351,59 @@ const showContextMenu = ref(false);
 const contextMenuX = ref(0);
 const contextMenuY = ref(0);
 const selectedContextElement = ref<Obstacles | null>(null);
-const selectedAlgorithm = ref<boolean>(true);
-const handleAlgorithmChange = () => {
-  if (!selectedAlgorithm.value) {
-    ElMessage({
-      message: "当前选择的算法为Dijkstra算法,暂未实现路径规划",
-      type: "warning",
+const selectedAlgorithm = ref<PathFindingAlgorithm>("A*");
+const progressPercentage = computed(() => {
+  if (animationQuadTreeSplitSteps.value.length === 0) return 0;
+  return Number(
+    (
+      (currentQuadTreeSplitStep.value / animationQuadTreeSplitSteps.value.length) *
+      100
+    ).toFixed(2)
+  );
+});
+// 跳过分割过程
+const skipQuadTreeAnimation = () => {
+  try {
+    if (animationQuadTreeSplitSteps.value.length === 0) {
+      ElMessage.error("请先创建地图或加载地图");
+      return;
+    }
+
+    // 停止动画播放
+    isQuadTreeSplitPlaying.value = false;
+
+    // 清空当前图层
+    persistentLayer.value.destroyChildren();
+
+    // 绘制所有分割线
+    animationQuadTreeSplitSteps.value.forEach((node) => {
+      const { bounds, isLeaf } = node;
+      const { x, y, width, height, midX, midY } = bounds;
+
+      if (!isLeaf) {
+        // 水平线
+        const hLine = createDividingLine([x, midY, x + width, midY], dividColor.value);
+        persistentLayer.value.add(hLine);
+
+        // 垂直线
+        const vLine = createDividingLine([midX, y, midX, y + height], dividColor.value);
+        persistentLayer.value.add(vLine);
+      }
     });
+
+    // 更新图层
+    persistentLayer.value.batchDraw();
+
+    // 更新进度条为 100%
+    currentQuadTreeSplitStep.value = animationQuadTreeSplitSteps.value.length;
+    ElMessage.success("分割过程已跳过，直接完成！");
+  } catch (error) {
+    console.error("跳过分割过程时出错:", error);
+    ElMessage.error("跳过分割过程时发生错误，请检查控制台日志");
   }
 };
+type PathFindingAlgorithm = "A*" | "Dijkstra";
+
 const astarHeuristicType = ref<HeuristicType>("euclidean");
 const handleHeuristicChange = () => {
   console.log("启发函数", astarHeuristicType.value);
@@ -372,12 +430,7 @@ const animationQuadTreeSplitSteps = ref<QuadTreeNode[]>([]);
 const currentQuadTreeSplitStep = ref(0);
 const isQuadTreeSplitPlaying = ref(false);
 
-const generateId = () => {
-  return uuidv4();
-};
-
-
-const handlePathFinding =  async() => {
+const handlePathFinding = async () => {
   if (!startPoint.value || !endPoint.value) {
     ElMessage.warning("请先设置起点和终点");
     return;
@@ -387,20 +440,55 @@ const handlePathFinding =  async() => {
     return;
   }
 
-  const startNode = findNodeContainingPoint(quadTree.value, startPoint.value.x, startPoint.value.y);
-  const endNode = findNodeContainingPoint(quadTree.value, endPoint.value.x, endPoint.value.y);
+  const startNode = findNodeContainingPoint(
+    quadTree.value,
+    startPoint.value.x,
+    startPoint.value.y
+  );
+  const endNode = findNodeContainingPoint(
+    quadTree.value,
+    endPoint.value.x,
+    endPoint.value.y
+  );
 
   if (!startNode || !endNode) {
-    ElMessage.warning("起点或终点不在障碍物范围内");
+    ElMessage.warning("起点或终点所在节点包含障碍物");
     return;
   }
 
-  const { path, steps } = aStar(startNode, endNode, quadTree.value, astarHeuristicType.value);
+  const { path: aStarPath, steps: aStarSteps } = aStar(
+    startNode,
+    endNode,
+    quadTree.value,
+    astarHeuristicType.value
+  );
+  const { path: dijkstraPath, steps: dijkstraSteps } = dijkstra(
+    startNode,
+    endNode,
+    quadTree.value
+  );
 
-  if (!path) {
+  if (!aStarPath || !dijkstraPath) {
     ElMessage.error("未找到可行路径");
     return;
   }
+  let path: QuadTreeNode[];
+  let steps: {
+    current: QuadTreeNode;
+    openSet: QuadTreeNode[];
+    closedSet: QuadTreeNode[];
+  }[];
+  if(selectedAlgorithm.value === "A*") {
+    path = aStarPath;
+    steps = aStarSteps;
+  } else {
+    path = dijkstraPath;
+    steps = dijkstraSteps;
+  }
+
+  // 调整路径，处理起点和终点的边缘情况
+  const adjustedPath = adjustPathForStartAndEnd(path, startPoint.value, endPoint.value);
+
   const stage = Konva.stages[0];
   if (!stage) {
     ElMessage.error("未找到舞台实例");
@@ -420,7 +508,7 @@ const handlePathFinding =  async() => {
       width: step.current.bounds.width,
       height: step.current.bounds.height,
       fill: "#52c41a",
-      opacity: 0.2,
+      opacity: 0.5,
     });
     tempLayer.value.add(currentNodeVisual);
 
@@ -450,19 +538,6 @@ const handlePathFinding =  async() => {
       tempLayer.value.add(closedNodeVisual);
     });
 
-    // 渲染邻居节点
-    step.neighbors.forEach((node) => {
-      const neighborNodeVisual = new Konva.Rect({
-        x: node.bounds.x,
-        y: node.bounds.y,
-        width: node.bounds.width,
-        height: node.bounds.height,
-        fill: "green",
-        opacity: 0.2,
-      });
-      tempLayer.value.add(neighborNodeVisual);
-    });
-
     // 更新图层
     tempLayer.value.batchDraw();
 
@@ -471,7 +546,7 @@ const handlePathFinding =  async() => {
   }
 
   // 渲染最终路径
-  const points = path.flatMap((node) => [node.bounds.midX, node.bounds.midY]);
+  const points = adjustedPath.flatMap((node) => [node.x, node.y]);
   const pathLine = new Konva.Line({
     points,
     stroke: "#f5222d",
@@ -484,8 +559,45 @@ const handlePathFinding =  async() => {
   ElMessage.success("路径规划完成！");
 };
 
+/**
+ * 调整路径，处理起点和终点的边缘情况。
+ *
+ * @param path - A* 算法生成的路径。
+ * @param startPoint - 起点的实际坐标。
+ * @param endPoint - 终点的实际坐标。
+ * @returns 调整后的路径。
+ */
+const adjustPathForStartAndEnd = (
+  path: QuadTreeNode[],
+  startPoint: { x: number; y: number },
+  endPoint: { x: number; y: number }
+): { x: number; y: number }[] => {
+  const adjustedPath: { x: number; y: number }[] = [];
+
+  // 起点到起点所在节点中心
+  const startNode = path[0];
+  if (startNode) {
+    adjustedPath.push({ x: startPoint.x, y: startPoint.y }); // 起点实际位置
+    adjustedPath.push({ x: startNode.bounds.midX, y: startNode.bounds.midY }); // 起点中心
+  }
+
+  // 添加中间路径
+  for (let i = 1; i < path.length - 1; i++) {
+    adjustedPath.push({ x: path[i].bounds.midX, y: path[i].bounds.midY });
+  }
+
+  // 终点所在节点中心到终点
+  const endNode = path[path.length - 1];
+  if (endNode) {
+    adjustedPath.push({ x: endNode.bounds.midX, y: endNode.bounds.midY }); // 终点中心
+    adjustedPath.push({ x: endPoint.x, y: endPoint.y }); // 终点实际位置
+  }
+
+  return adjustedPath;
+};
+
 //生成四叉节点中心点
-const generatorCenterPoint = (root: QuadTreeNode): Konva.Circle[] => {
+const generateCenterPoint = (root: QuadTreeNode): Konva.Circle[] => {
   const centerPoints: Konva.Circle[] = [];
   const traverse = (node: QuadTreeNode) => {
     if (!node) return;
@@ -514,7 +626,7 @@ watch(showCenterPoint, (newValue) => {
   if (!baseLayer) return;
 
   if (newValue) {
-    const centerPoints = generatorCenterPoint(quadTree.value);
+    const centerPoints = generateCenterPoint(quadTree.value);
     centerPoints.forEach((point) => baseLayer.add(point));
   } else {
     baseLayer.find("Circle").forEach((circle) => {
@@ -542,43 +654,61 @@ const handleElementContextMenu = (
   contextMenuY.value = e.evt.clientY;
   showContextMenu.value = true;
 };
-// 删除元素
-const deleteElement = (element: Obstacles | null) => {
-  if (element) {
-    const index = obstacles.value.findIndex((item) => item.id === element.id);
-    if (index !== -1) {
-      obstacles.value.splice(index, 1);
-    }
-    showContextMenu.value = false;
-  }
-}; // 复制元素
-const copyElement = (element: Obstacles | null) => {
-  console.log("copy le");
-  if (element) {
-    const newElement = {
-      ...element,
-      id: generateId(),
-      x: element.x + 10, // 稍微偏移避免重叠
-      y: element.y + 10,
-    };
-    obstacles.value.push(newElement);
-    showContextMenu.value = false;
-  }
-};
 
 const handleSelectMapChange = async (id: number) => {
   clearCanvans();
-  const obstaclesData = mapList.value?.find((item) => item.id === id)?.obstacles;
-  if (obstaclesData) {
-    obstacles.value = obstaclesData.map((v) => ({
+  const map = mapList.value?.find((item) => item.id === id);
+  if (map && map.obstacles) {
+    obstacles.value = map.obstacles.map((v) => ({
       ...v,
       draggable: true,
       isDragging: false,
       isActive: false,
     }));
+    startPoint.value = map.startPoint || { x: -1, y: -1 };
+    endPoint.value = map.endPoint || { x: -1, y: -1 };
+    //重新设置起点和终点
+    startShape.value?.destroy();
+    endShape.value?.destroy();
+    startShape.value = new Konva.Image({
+      x: startPoint.value.x,
+      y: startPoint.value.y,
+      image: startImageObj,
+      width: startImageObj.width,
+      height: startImageObj.height,
+      offset: {
+        x: startImageObj.width / 2,
+        y: startImageObj.height,
+      },
+      name: "startPoint",
+    });
+    endShape.value = new Konva.Image({
+      x: endPoint.value.x,
+      y: endPoint.value.y,
+      image: endImageObj,
+      width: endImageObj.width,
+      height: endImageObj.height,
+      offset: {
+        x: endImageObj.width / 2,
+        y: endImageObj.height,
+      },
+      name: "endPoint",
+    });
+
+    // 通过baseLayer清除之前设置的起点和终点
+    const baseLayer = Konva.stages[0].getLayers().find((layer) => {
+      if (layer.id() === "baseLayer") {
+        return layer as Konva.Layer;
+      }
+    });
+    if (baseLayer) {
+      baseLayer.destroyChildren();
+      baseLayer.add(startShape.value as Konva.Image);
+      baseLayer.add(endShape.value as Konva.Image);
+    }
+    baseLayer?.batchDraw();
   }
 };
-
 
 const handleSave = async (formEl: FormInstance | undefined) => {
   if (!formEl) return;
@@ -593,7 +723,8 @@ const handleSave = async (formEl: FormInstance | undefined) => {
         obstacles: [...obstacles.value],
         minThreshold: minThreshold.value,
         dividColor: dividColor.value,
-
+        startPoint: startPoint.value ? startPoint.value : { x: -1, y: -1 },
+        endPoint: endPoint.value ? endPoint.value : { x: -1, y: -1 },
       };
       await createMap(params);
       ElMessage({
@@ -644,6 +775,7 @@ const handleStageContextMenuClick = (event: Konva.KonvaEventObject<MouseEvent>) 
     showContextMenu.value = false; // 确保其他菜单隐藏
   }
 };
+//设置起点
 const setStartPoint = () => {
   const stage = Konva.stages[0];
   if (stage) {
@@ -712,8 +844,6 @@ const setEndPoint = () => {
   showStageContextMenu.value = false;
   showContextMenu.value = false;
 };
-const minThreshold = ref<number>(20);
-const dividColor = ref<string>("#0077ff");
 
 const selectedElement = ref<SelectedObstaclesDto>({
   id: "",
@@ -922,7 +1052,10 @@ const autoPlaySteps = async () => {
     isQuadTreeSplitPlaying.value = true;
 
     // 从当前步骤开始播放
-    while (currentQuadTreeSplitStep.value < animationQuadTreeSplitSteps.value.length && isQuadTreeSplitPlaying.value) {
+    while (
+      currentQuadTreeSplitStep.value < animationQuadTreeSplitSteps.value.length &&
+      isQuadTreeSplitPlaying.value
+    ) {
       await visualizeCurrentStep();
       await new Promise((resolve) => setTimeout(resolve, animationDuration.value * 1000));
 
@@ -950,7 +1083,10 @@ const togglePause = () => {
   isQuadTreeSplitPlaying.value = !isQuadTreeSplitPlaying.value;
   ElMessage.info(isQuadTreeSplitPlaying.value ? "继续播放" : "已暂停");
   // 继续播放时如果还有步骤未完成则重新触发播放
-  if (isQuadTreeSplitPlaying.value && currentQuadTreeSplitStep.value++ < animationQuadTreeSplitSteps.value.length) {
+  if (
+    isQuadTreeSplitPlaying.value &&
+    currentQuadTreeSplitStep.value++ < animationQuadTreeSplitSteps.value.length
+  ) {
     autoPlaySteps();
   }
 };
@@ -974,8 +1110,7 @@ const visualizeQuadTreeWithAnimation = async () => {
       minThreshold: minThreshold.value,
       obstacleRatioThreshold: 0.3,
     });
-    quadTree.value = qt
-
+    quadTree.value = qt;
 
     animationQuadTreeSplitSteps.value = generateQuadTreeSteps(quadTree.value); //层序遍历
     currentQuadTreeSplitStep.value = 0;
@@ -995,7 +1130,8 @@ const visualizeCurrentStep = async () => {
         return;
       }
       stage.add(persistentLayer.value as Konva.Layer);
-      const currentNode = animationQuadTreeSplitSteps.value[currentQuadTreeSplitStep.value];
+      const currentNode =
+        animationQuadTreeSplitSteps.value[currentQuadTreeSplitStep.value];
       if (!currentNode) {
         resolve();
         return;
@@ -1081,45 +1217,24 @@ const initializeState = () => {
   tempLayer.value.destroyChildren();
 };
 
+// 删除元素
+const deleteElement = (element: Obstacles | null) => {
+  deleteObstacle(obstacles.value, element);
+  showContextMenu.value = false;
+};
+
+// 复制元素
+const copyElement = (element: Obstacles | null) => {
+  copyObstacle(obstacles.value, element);
+  showContextMenu.value = false;
+};
+
+// 添加障碍物
+const addObstacleHandler = (type: "circle" | "rectangle") => {
+  addObstacle(obstacles.value, type);
+};
 const clearObstacles = () => {
   initializeState();
-};
-/**
- * @description: 添加障碍物
- * @param type 障碍物类型
- * @return void
- */
-const addObstacle = (type: IComponentShapeType) => {
-  let newObstacle: Obstacles;
-  const commonProps = {
-    fill: "#000",
-    stroke: "#000",
-    strokeWidth: 0,
-    id: generateId(),
-    draggable: true, // 添加 draggable 属性
-    isDragging: false, // 添加 isDragging 属性
-    isActive: false,
-  };
-  if (type === "circle") {
-    newObstacle = {
-      ...commonProps,
-      type,
-      radius: 50,
-      x: 100,
-      y: 100,
-    };
-    obstacles.value.push(newObstacle);
-  } else if (type === "rectangle") {
-    newObstacle = {
-      ...commonProps,
-      type,
-      width: 100,
-      height: 100,
-      x: 200,
-      y: 150,
-    };
-    obstacles.value.push(newObstacle);
-  }
 };
 </script>
 
@@ -1193,7 +1308,7 @@ const addObstacle = (type: IComponentShapeType) => {
   flex-direction: row;
 }
 .container .shapes {
-  max-width: 200px;
+  width: 200px;
   display: flex;
   flex-direction: column;
 }
@@ -1271,7 +1386,7 @@ const addObstacle = (type: IComponentShapeType) => {
   flex-direction: column;
 }
 .container .content .operation-item {
-  padding: 10px;
+  padding: 5px;
   font-size: 16px;
   margin: 10px;
   display: flex;
@@ -1326,20 +1441,18 @@ const addObstacle = (type: IComponentShapeType) => {
   background-color: white;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
   border-radius: 16px;
-
-
 }
-.container .tool-box .current-element{
+.container .tool-box .current-element {
   max-height: 170px;
-
+  overflow-y: scroll;
 }
-.container .tool-box .params{
-  max-height: 220px;
+.container .tool-box .params {
+  max-height: 180px;
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
   overflow-y: scroll;
 }
-.container .tool-box .map-props{
+.container .tool-box .map-props {
   max-height: 120px;
 }
 .container .tool-box .map-props .name,
@@ -1378,7 +1491,4 @@ const addObstacle = (type: IComponentShapeType) => {
   background-color: #f5f7fa;
   color: #409eff;
 }
-
-
-
 </style>

@@ -36,6 +36,7 @@ export const aStar = (
   start.fCost = start.gCost + start.hCost;
 
   while (openSet.length > 0) {
+
     // 找到 fCost 最小的节点
     let currentIndex = 0;
     for (let i = 0; i < openSet.length; i++) {
@@ -47,12 +48,19 @@ export const aStar = (
 
     // 如果找到终点，回溯路径
     if (current === end) {
+      closedSet.push(current);
       const path: QuadTreeNode[] = [];
       let temp = current;
       while (temp) {
         path.push(temp);
         temp = temp.parent!;
       }
+      steps.push({
+        current,
+        openSet: [...openSet],
+        closedSet: [...closedSet],
+        neighbors: [],
+      });
       return {
         path: path.reverse(),
         steps,
@@ -64,36 +72,36 @@ export const aStar = (
     closedSet.push(current);
 
     // 获取当前节点的邻居节点
-    const neighbors = getNeighbors(current, root);
-    for (const neighbor of neighbors) {
-      // 如果邻居节点不可通行或已在关闭列表中，跳过
+    // 获取当前节点的邻居节点
+    const neighbors = getNeighbors(current, root).map((neighbor) => {
       if (!neighbor.isWalkable || closedSet.includes(neighbor)) {
-        continue;
+        return {...neighbor};
       }
 
-      // 计算从当前节点到邻居节点的成本
       const tentativeGCost = current.gCost! + heuristic(current, neighbor, astarHeuristicType);
-
-      // 如果邻居节点不在开放列表中，或新的路径成本更低，则更新邻居节点
       if (!openSet.includes(neighbor)) {
+        neighbor.parent = current;
+        neighbor.gCost = tentativeGCost;
+        neighbor.hCost = heuristic(neighbor, end, astarHeuristicType);
+        neighbor.fCost = neighbor.gCost + neighbor.hCost;
         openSet.push(neighbor);
-      } else if (tentativeGCost >= neighbor.gCost!) {
-        continue;
+        return { ...neighbor};
+      } else if (tentativeGCost < neighbor.gCost!) {
+        neighbor.parent = current;
+        neighbor.gCost = tentativeGCost;
+        neighbor.fCost = neighbor.gCost + neighbor.hCost!;
+        return { ...neighbor};
       }
 
-      // 更新邻居节点的成本和父节点
-      neighbor.parent = current;
-      neighbor.gCost = tentativeGCost;
-      neighbor.hCost = heuristic(neighbor, end, astarHeuristicType);
-      neighbor.fCost = neighbor.gCost + neighbor.hCost;
-    }
+      return {  ...neighbor};
+    });
 
     // 保存当前步骤的状态
     steps.push({
       current,
       openSet: [...openSet],
       closedSet: [...closedSet],
-      neighbors: [...neighbors],
+      neighbors,
     });
   }
 
@@ -199,4 +207,104 @@ export const heuristic = (
   } else {
     throw new Error('Unsupported heuristic type');
   }
+};
+export const dijkstra = (
+  start: QuadTreeNode,
+  end: QuadTreeNode,
+  root: QuadTreeNode
+): {
+  path: QuadTreeNode[] | null;
+  steps: {
+    current: QuadTreeNode;
+    openSet: QuadTreeNode[];
+    closedSet: QuadTreeNode[];
+    neighbors: QuadTreeNode[];
+  }[];
+} => {
+  const openSet: QuadTreeNode[] = [start];
+  const closedSet: QuadTreeNode[] = [];
+  const steps: {
+    current: QuadTreeNode;
+    openSet: QuadTreeNode[];
+    closedSet: QuadTreeNode[];
+    neighbors: QuadTreeNode[];
+  }[] = [];
+
+  if (!start.isWalkable || !end.isWalkable) {
+    return { path: null, steps };
+  }
+
+  start.gCost = 0;
+
+  while (openSet.length > 0) {
+    // 找到 gCost 最小的节点
+    let currentIndex = 0;
+    for (let i = 0; i < openSet.length; i++) {
+      if (openSet[i].gCost! < openSet[currentIndex].gCost!) {
+        currentIndex = i;
+      }
+    }
+    const current = openSet[currentIndex];
+
+    // 如果找到终点，回溯路径
+    if (current === end) {
+      const path: QuadTreeNode[] = [];
+      let temp = current;
+      while (temp) {
+        path.push(temp);
+        temp = temp.parent!;
+      }
+      steps.push({
+        current,
+        openSet: [...openSet],
+        closedSet: [...closedSet],
+        neighbors: [],
+      });
+      return {
+        path: path.reverse(),
+        steps,
+      };
+    }
+
+    // 从开放列表中移除当前节点，并加入关闭列表
+    openSet.splice(currentIndex, 1);
+    closedSet.push(current);
+
+    // 获取当前节点的邻居节点
+    const neighbors = getNeighbors(current, root);
+    for (const neighbor of neighbors) {
+      // 如果邻居节点不可通行或已在关闭列表中，跳过
+      if (!neighbor.isWalkable || closedSet.includes(neighbor)) {
+        continue;
+      }
+
+      // 计算从当前节点到邻居节点的成本
+      const tentativeGCost = current.gCost! + heuristic(current, neighbor, 'manhattan'); // 替换为实际距离计算
+
+      // 如果邻居节点不在开放列表中，或新的路径成本更低，则更新邻居节点
+      if (!openSet.includes(neighbor)) {
+        openSet.push(neighbor);
+      } else if (tentativeGCost >= neighbor.gCost!) {
+        continue;
+      }
+
+      // 更新邻居节点的成本和父节点
+      neighbor.parent = current;
+      neighbor.gCost = tentativeGCost;
+    }
+
+    // 保存当前步骤的状态
+    steps.push({
+      current,
+      openSet: [...openSet],
+      closedSet: [...closedSet],
+      neighbors: [...neighbors],
+    });
+  }
+
+  // 如果未找到路径
+  return {
+    path: null,
+    steps,
+  };
 };
