@@ -1,20 +1,12 @@
 <template>
   <div class="user-info">
     <el-dropdown placement="bottom">
-      <el-avatar
-        class="user-avatar"
-        :icon="UserFilled"
-        :src="
-          user?.name
-            ? 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png'
-            : ''
-        "
-      >
+      <el-avatar class="user-avatar" :icon="UserFilled" :src="user?.avatar">
         {{ "登录" }}
       </el-avatar>
       <template #dropdown>
         <el-dropdown-menu v-if="user">
-          <el-dropdown-item>
+          <el-dropdown-item @click="handleClickUserInfo">
             <div>个人信息</div>
           </el-dropdown-item>
           <el-dropdown-item @click="confirmLogout">登出</el-dropdown-item>
@@ -40,6 +32,9 @@ const confirmLogout = () => {
   authStore.logoutUser();
   route.replace("/login");
 };
+const handleClickUserInfo = () => {
+  route.push("/system/user");
+};
 </script>
 
 <style scoped>
@@ -51,11 +46,11 @@ const confirmLogout = () => {
 }
 .user-avatar {
   cursor: pointer;
-  background-color: #409eff;
+  background-color: #83868a;
   color: white;
   font-size: 12px;
 }
 .user-avatar:hover {
-  background-color: #66b1ff;
+  background-color: #949aa0;
 }
 </style>

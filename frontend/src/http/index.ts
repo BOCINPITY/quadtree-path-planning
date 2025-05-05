@@ -1,7 +1,8 @@
 import axios from 'axios'
+import { ElMessage } from 'element-plus'
 
 const request = axios.create({
-  baseURL: 'http://localhost:3000',
+  baseURL: import.meta.env.MODE === 'development' ? '/api' : 'http://your-production-url.com/api',
   timeout: 10000,
 })
 
@@ -31,6 +32,7 @@ request.interceptors.response.use(
     // 处理响应错误
     if (error.response) {
       const { status } = error.response
+      (error.response.data.error ? ElMessage.error(error.response.data.error) : null)
       if (status === 401) {
         console.error('Unauthorized: Redirecting to login')
         //触发登出逻辑或跳转到登录页

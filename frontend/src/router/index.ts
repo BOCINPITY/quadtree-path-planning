@@ -11,15 +11,19 @@ const router = createRouter({
     },
     {
       path: '/system',
-      component: () => import('@/views/Layout/Layout.vue'),
+      component: () => import('@/views/Layout/LayoutComponent.vue'),
       children: [
         {
           path: '',
-          component: () => import('@/views/Home/SystemHome.vue'),
+          component: () => import('@/views/MapEditor/MapEditor.vue'),
         },
         {
-          path: 'editor',
-          component: () => import('@/views/MapEditor/MapEditor.vue'),
+          path: 'mapmanager',
+          component: () => import('@/views/MapManager/MapManager.vue'),
+        },
+        {
+          path:"user",
+          component: () => import('@/views/Setting/UserSetting.vue'),
         },
       ],
     },

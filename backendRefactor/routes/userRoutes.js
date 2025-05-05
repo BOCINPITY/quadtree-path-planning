@@ -7,4 +7,6 @@ router.get('/', authenticateToken, userController.getUsers); // 为 getUsers 路
 router.get('/:id', authenticateToken, userController.getUserById);
 router.put('/:id', authenticateToken, userController.updateUser);
 router.delete('/:id', authenticateToken, userController.deleteUser);
+router.post('/password', authenticateToken, userController.updatePassword); // 更新密码
+
 module.exports = router;

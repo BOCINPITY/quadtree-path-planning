@@ -1,5 +1,5 @@
 const User = require('../model/userModel');
-
+const bcrypt = require('bcrypt'); // 用于密码加密
 
 const createUser = async (ctx) => {
     try {
@@ -59,17 +59,19 @@ const getUserById = async (ctx) => {
 const updateUser = async (ctx) => {
     try {
         const id = parseInt(ctx.params.id, 10);
-        const { name, email } = ctx.request.body;
+        const { name, email,avatar,bio,address,field,gender,birthday } = ctx.request.body;
 
         const [updated] = await User.update(
-            { name, email },
+            { name, email,avatar,bio,address,field,gender,birthday},
             { where: { id } }
         );
 
         if (updated) {
             const updatedUser = await User.findByPk(id, {
-                attributes: ['id', 'name', 'email']
+                //除去密码
+                attributes: ['id', 'name', 'email','avatar','bio','address','field','gender','birthday'],
             });
+            ctx.status = 200;
             ctx.body = updatedUser;
         } else {
             ctx.status = 404;
@@ -81,7 +83,10 @@ const updateUser = async (ctx) => {
     }
 }
 
-
+/**
+ * @description 注销用户
+ * @param {*} ctx 
+ */
 const deleteUser = async (ctx) => {
     try {
         const id = parseInt(ctx.params.id, 10);
@@ -98,11 +103,57 @@ const deleteUser = async (ctx) => {
         ctx.body = { error: error.message };
     }
 }
+/**
+ * 
+ * @param {*} ctx 
+ * @description 更新密码
+ */
+const updatePassword = async (ctx) => {
+    try {
+        const { password,oldPassword,id:uid } = ctx.request.body;
+        console.log(ctx.request.body);
+        const id = parseInt(uid, 10);
+        // 查找用户
+        const user = await User.findByPk(id);
+        if (!user) {
+            ctx.status = 404;
+            ctx.body = { error: '用户不存在' };
+            return;
+        }
+        // 验证旧密码
+        const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
+        if (!isPasswordValid) {
+            ctx.status = 400;
+            ctx.body = { error: '旧密码错误' };
+            return;
+        }
+
+        // 加密密码
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const [updated] = await User.update(
+            { password: hashedPassword },
+            { where: { id } }
+        );
+
+        if (updated) {
+            ctx.status = 200;
+            ctx.body = { message: '密码修改成功' };
+        } else {
+            ctx.status = 404;
+            ctx.body = { error: '用户不存在' };
+        }
+    } catch (error) {
+        ctx.status = 500;
+        ctx.body = { error: error.message };
+    }
+};
 
 module.exports = {
     createUser,
     getUsers,
     getUserById,
     updateUser,
-    deleteUser
+    deleteUser,
+    updatePassword
 };

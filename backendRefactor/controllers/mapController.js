@@ -47,7 +47,9 @@ const getAllMaps = async (ctx) => {
                 'endPoint',
                 'obstacles',
                 'dividColor',
-                'minThreshold'
+                'minThreshold',
+                'createdAt',
+                'updatedAt'
             ],
             order: [['createdAt', 'DESC']]
         });
@@ -81,14 +83,14 @@ const getMapById = async (ctx) => {
 const updateMap = async (ctx) => {
     try {
         const { id } = ctx.params;
-        const { name, width, height, startPoint, endPoint, obstacles } = ctx.request.body;
+        const { name,description, width, height, startPoint, endPoint, obstacles,dividColor,minThreshold } = ctx.request.body;
         const map = await Map.findByPk(id);
         if (!map) {
             ctx.status = 404;
             ctx.body = { message: 'Map not found' };
             return;
         }
-        await map.update({ name, width, height, startPoint, endPoint, obstacles });
+        await map.update({ name,description, width, height, startPoint, endPoint, obstacles,dividColor,minThreshold });
         ctx.status = 200;
         ctx.body = map;
     } catch (error) {

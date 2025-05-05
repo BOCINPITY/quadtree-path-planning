@@ -20,6 +20,19 @@ export const useAuthStore = defineStore('auth', {
         throw error
       }
     },
+    updateUserInfo(userData: Partial<User>) {
+      if (!this.user) {
+        throw new Error('User is not authenticated')
+      }
+      try {
+        this.$patch({
+          user: { ...this.user, ...userData },
+        })
+      } catch (error) {
+        console.error('Failed to update user info:', error)
+        throw error
+      }
+    },
 
     logoutUser() {
       this.$patch({

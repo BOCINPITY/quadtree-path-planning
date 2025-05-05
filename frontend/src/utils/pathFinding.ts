@@ -28,6 +28,7 @@ export const aStar = (
     end: QuadTreeNode,
     root: QuadTreeNode,
     astarHeuristicType: HeuristicType
+
 ): {
     path: QuadTreeNode[] | null; // 最终路径
     steps: {
@@ -128,7 +129,6 @@ export const aStar = (
  * 获取四叉树中某个节点的相邻节点。
  *
  * @param node - 要查找相邻节点的当前节点。
- * @param root - 四叉树结构的根节点。（这里 root 参数不再需要，可以后续移除）
  * @returns 可行走的相邻节点数组。
  */
 export const getNeighbors = (node: QuadTreeNode): QuadTreeNode[] => {
@@ -213,9 +213,18 @@ export const heuristic = (
     throw new Error('Unsupported heuristic type');
   }
 };
+
+/**
+ *
+ * @param start
+ * @param end
+ * @param root
+ * @returns
+ */
 export const dijkstra = (
   start: QuadTreeNode,
   end: QuadTreeNode,
+  root: QuadTreeNode
 ): {
   path: QuadTreeNode[] | null;
   steps: {
@@ -225,6 +234,7 @@ export const dijkstra = (
     neighbors: QuadTreeNode[];
   }[];
 } => {
+  // console.log(root)
   const openSet: QuadTreeNode[] = [start];
   const closedSet: QuadTreeNode[] = [];
   const steps: {

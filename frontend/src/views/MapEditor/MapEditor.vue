@@ -13,12 +13,13 @@
           <div class="icon-name">{{ shape.name }}</div>
         </div>
       </div>
-      <div class="title">我的云端地图</div>
+      <div class="title">地图加载</div>
       <div class="map-list">
         <el-select
           v-model="selectedMap"
           placeholder="请选择地图"
           @change="handleSelectMapChange"
+          clearable
         >
           <el-option
             v-for="item in mapList"
@@ -37,12 +38,11 @@
         <div v-if="selectedAlgorithm === 'A*'" class="algorithm-params">
           <div class="param-item">
             <div class="label">启发函数选择</div>
-            <el-radio-group v-model="astarHeuristicType" @change="handleHeuristicChange">
+            <el-radio-group v-model="astarHeuristicType">
               <el-radio :value="'euclidean'">欧式距离</el-radio>
               <el-radio :value="'manhattan'">曼哈顿距离</el-radio>
               <el-radio :value="'diagonal'">对角距离</el-radio>
               <el-radio :value="'chebyshev'">切比雪夫距离</el-radio>
-
             </el-radio-group>
           </div>
         </div>
@@ -50,7 +50,7 @@
     </div>
 
     <div class="content">
-      <div class="play-buttons algorithm">
+      <!-- <div class="play-buttons algorithm">
         <el-text>路径规划操作按钮</el-text>
         <div class="btns">
           <div class="operation-item">
@@ -68,7 +68,7 @@
             <el-icon :size="operationBtnSize"><ArrowRightBold /></el-icon>
           </div>
         </div>
-      </div>
+      </div> -->
       <div class="play-buttons">
         <el-text>分割操作按钮</el-text>
         <el-progress
@@ -77,25 +77,29 @@
           :stroke-width="10"
         />
         <div class="btns">
-          <div class="operation-item" @click="stepBackward">
-            <el-icon :size="operationBtnSize"><ArrowLeftBold /></el-icon>
-          </div>
-
-          <div class="operation-item" @click="togglePause">
-            <el-icon :size="operationBtnSize">
-              <VideoPlay v-if="!isQuadTreeSplitPlaying" style="color: orange" />
-              <VideoPause style="color: red" v-else />
-            </el-icon>
-          </div>
-
-          <div class="operation-item" type="primary" @click="stepForward">
-            <el-icon :size="operationBtnSize"><ArrowRightBold /></el-icon>
-          </div>
-          <!-- 跳过按钮 -->
-          <div class="operation-item" type="danger" @click="skipQuadTreeAnimation">
-            <el-icon :size="operationBtnSize"><Ship /></el-icon>
-          </div>
-          <!-- 进度条 -->
+          <el-tooltip effect="dark" content="上一步">
+            <div class="operation-item" @click="stepBackward">
+              <el-icon :size="operationBtnSize"><ArrowLeftBold /></el-icon>
+            </div>
+          </el-tooltip>
+          <el-tooltip effect="dark" content="暂停或播放分割动画">
+            <div class="operation-item" @click="togglePause">
+              <el-icon :size="operationBtnSize">
+                <VideoPlay v-if="!isQuadTreeSplitPlaying" style="color: orange" />
+                <VideoPause style="color: red" v-else />
+              </el-icon>
+            </div>
+          </el-tooltip>
+          <el-tooltip effect="dark" content="下一步">
+            <div class="operation-item" type="primary" @click="stepForward">
+              <el-icon :size="operationBtnSize"><ArrowRightBold /></el-icon>
+            </div>
+          </el-tooltip>
+          <el-tooltip effect="dark" content="跳过分割过程">
+            <div class="operation-item" type="danger" @click="skipQuadTreeAnimation">
+              <el-icon :size="operationBtnSize"><Ship /></el-icon>
+            </div>
+          </el-tooltip>
         </div>
       </div>
 
@@ -106,9 +110,9 @@
         <el-button
           class="operation-item"
           type="primary"
-          @click="() => (modalVisiable = true)"
+          @click="handlCreateOrUpdateMapBtnClick"
         >
-          保存并上传
+          {{ selectedMap ? "更新地图信息" : "保存地图信息" }}
         </el-button>
         <el-button
           class="operation-item"
@@ -288,7 +292,7 @@
   >
     <el-form
       class="map-info-form"
-      label-width="80px"
+      label-width="100px"
       ref="mapInfoFormRef"
       :model="mapInfo"
       :rules="rules"
@@ -301,6 +305,9 @@
           type="textarea"
           v-model="mapInfo.description"
           placeholder="请输入地图描述"
+          maxlength="200"
+          show-word-limit
+          :rows="3"
         ></el-input>
       </el-form-item>
       <div class="modal-footer">
@@ -320,7 +327,7 @@ import { componentShapeList } from "@/utils/shapeIcons";
 import Konva from "konva";
 import type { QuadTreeNode } from "@/utils/quadTree";
 import type { GetMapListDto } from "@/http/map";
-import { createMap, getMapList } from "@/http/map";
+import { createMap, getMapList, updateMapById } from "@/http/map";
 import type { FormInstance } from "element-plus";
 import type { Obstacles, SelectedObstaclesDto } from "@/@types/dto";
 import { buildQuadTreeFrontend } from "@/utils/quadTree";
@@ -406,11 +413,20 @@ const skipQuadTreeAnimation = () => {
   }
 };
 type PathFindingAlgorithm = "A*" | "Dijkstra";
-
-const astarHeuristicType = ref<HeuristicType>("euclidean");
-const handleHeuristicChange = () => {
-  console.log("启发函数", astarHeuristicType.value);
+const handlCreateOrUpdateMapBtnClick = () => {
+  if (selectedMap.value) {
+    const map = mapList.value?.find((item) => item.id === selectedMap.value);
+    if (map) {
+      mapInfo.value.name = map.name;
+      mapInfo.value.description = map.description;
+    }
+  } else {
+    mapInfo.value.name = "";
+    mapInfo.value.description = "";
+  }
+  modalVisiable.value = true;
 };
+const astarHeuristicType = ref<HeuristicType>("euclidean");
 const showCenterPoint = ref(false);
 const centerPointsConfig = ref<Konva.CircleConfig>({
   radius: 2,
@@ -481,7 +497,7 @@ const handlePathFinding = async () => {
     openSet: QuadTreeNode[];
     closedSet: QuadTreeNode[];
   }[];
-  if(selectedAlgorithm.value === "A*") {
+  if (selectedAlgorithm.value === "A*") {
     path = aStarPath;
     steps = aStarSteps;
   } else {
@@ -659,8 +675,11 @@ const handleElementContextMenu = (
 };
 
 const handleSelectMapChange = async (id: number) => {
-  clearCanvans();
+  clearLayer();
+  if (!id) return;
   const map = mapList.value?.find((item) => item.id === id);
+  stageConfig.value.width = map?.width || 820;
+  stageConfig.value.height = map?.height || 580;
   if (map && map.obstacles) {
     obstacles.value = map.obstacles.map((v) => ({
       ...v,
@@ -715,25 +734,48 @@ const handleSelectMapChange = async (id: number) => {
 
 const handleSave = async (formEl: FormInstance | undefined) => {
   if (!formEl) return;
+  //校验地图信息
   await formEl.validate(async (valid) => {
     if (valid) {
-      const { name, description } = mapInfo.value;
-      const params = {
-        name,
-        description,
-        width: stageConfig.value.width,
-        height: stageConfig.value.height,
-        obstacles: [...obstacles.value],
-        minThreshold: minThreshold.value,
-        dividColor: dividColor.value,
-        startPoint: startPoint.value ? startPoint.value : { x: -1, y: -1 },
-        endPoint: endPoint.value ? endPoint.value : { x: -1, y: -1 },
-      };
-      await createMap(params);
-      ElMessage({
-        type: "success",
-        message: "地图保存成功",
-      });
+      // 分为更新和新增逻辑
+      if (selectedMap.value) {
+        //更新逻辑
+        const map = mapList.value?.find((item) => item.id === selectedMap.value);
+        if (map) {
+          map.name = mapInfo.value.name;
+          map.description = mapInfo.value.description;
+          map.width = stageConfig.value.width;
+          map.height = stageConfig.value.height;
+          map.obstacles = [...obstacles.value];
+          map.minThreshold = minThreshold.value;
+          map.dividColor = dividColor.value;
+          map.startPoint = startPoint.value ? startPoint.value : { x: -1, y: -1 };
+          map.endPoint = endPoint.value ? endPoint.value : { x: -1, y: -1 };
+          await updateMapById(selectedMap.value, map);
+          ElMessage({
+            type: "success",
+            message: "地图更新成功",
+          });
+        }
+      } else {
+        const { name, description } = mapInfo.value;
+        const params = {
+          name,
+          description,
+          width: stageConfig.value.width,
+          height: stageConfig.value.height,
+          obstacles: [...obstacles.value],
+          minThreshold: minThreshold.value,
+          dividColor: dividColor.value,
+          startPoint: startPoint.value ? startPoint.value : { x: -1, y: -1 },
+          endPoint: endPoint.value ? endPoint.value : { x: -1, y: -1 },
+        };
+        await createMap(params);
+        ElMessage({
+          type: "success",
+          message: "地图保存成功",
+        });
+      }
       mapList.value = await getMapList();
       modalVisiable.value = false;
     }
@@ -1197,13 +1239,11 @@ const createDividingLine = (points: number[], color: string) => {
   });
 };
 
-const clearCanvans = () => {
+const clearLayer = () => {
   const stage = Konva.stages[0];
   if (stage) {
     stage.getLayers().forEach((layer) => {
-      if (layer.id() !== "baseLayer" && layer !== tempLayer.value) {
-        layer.destroy();
-      }
+      layer.destroyChildren();
     });
     stage.batchDraw();
   }
@@ -1213,10 +1253,20 @@ const initializeState = () => {
   obstacles.value = [];
   animationQuadTreeSplitSteps.value = [];
   currentQuadTreeSplitStep.value = 0;
+  selectedAlgorithm.value = "A*";
+  selectedMap.value = undefined;
+  startPoint.value = { x: -1, y: -1 };
+  endPoint.value = { x: -1, y: -1 };
+  startShape.value?.destroy();
+  endShape.value?.destroy();
+  startShape.value = null;
+  endShape.value = null;
+  showStageContextMenu.value = false;
+  showContextMenu.value = false;
   dividColor.value = "#0077ff";
   minThreshold.value = 20;
   resetSelectedElement();
-  clearCanvans();
+  clearLayer();
   tempLayer.value.destroyChildren();
 };
 
@@ -1344,7 +1394,7 @@ const clearObstacles = () => {
   border: 1px solid var(--border-color);
 }
 .container .content {
-  background-color: #c7e9ff;
+  background-color: #d0d1d3;
   flex: 1;
   display: flex;
   align-items: center;

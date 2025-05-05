@@ -17,7 +17,9 @@ const loginOrRegister = async (ctx) => {
 
     try {
         // 检查用户是否已存在
-        let user = await User.findOne({ where: { email } });
+        let user = await User.findOne({
+            where: { email }
+        }); // 查找用户
 
         if (!user) {
             // 如果用户不存在，则注册新用户
@@ -26,11 +28,10 @@ const loginOrRegister = async (ctx) => {
 
             // 生成 token
             const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: TOKEN_EXPIRATION_TIME });
-
             ctx.status = 201;
             ctx.body = {
                 message: '注册成功',
-                user: { id: user.id, email: user.email, name: user.name }, // 不返回密码
+                user: {...user.toJSON(),password:undefined},
                 token
             };
             return;
@@ -39,7 +40,7 @@ const loginOrRegister = async (ctx) => {
         // 如果用户已存在，验证密码
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
-            ctx.status = 401;
+            ctx.status = 400;
             ctx.body = { message: '密码错误' };
             return;
         }
@@ -51,7 +52,7 @@ const loginOrRegister = async (ctx) => {
         ctx.status = 200;
         ctx.body = {
             message: '登录成功',
-            user: { id: user.id, email: user.email, name: user.name }, // 不返回密码
+            user: {...user.toJSON(),password:undefined},
             token
         };
     } catch (error) {

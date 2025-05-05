@@ -17,7 +17,11 @@ export default defineConfigWithVueTs(
     name: 'app/files-to-ignore',
     ignores: ['**/dist/**', '**/dist-ssr/**', '**/coverage/**'],
   },
-
+  {
+    rules: {
+      'vue/multi-word-component-names': 'off', // Disable the multi-word component name rule
+    },
+  },
   pluginVue.configs['flat/essential'],
   vueTsConfigs.recommended,
   skipFormatting,
