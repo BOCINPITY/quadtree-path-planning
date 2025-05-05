@@ -12,6 +12,9 @@
     "lint": "eslint . --fix",
     "format": "prettier --write src/"
   },
+  "rules": {
+    "vue/multi-word-component-names": "off"
+  },
   "dependencies": {
     "axios": "^1.8.4",
     "element-plus": "^2.9.7",

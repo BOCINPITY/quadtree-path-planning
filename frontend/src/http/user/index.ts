@@ -36,3 +36,15 @@ export const deleteUser = async (id: string) => {
     throw error
   }
 }
+
+
+//分页获取登录日志
+export const getLoginLogs = async (params: { page: number, limit: number,id:string }) => {
+  try {
+    const {data} = await request.get(`/loginLogs`, {params})
+    return data
+  } catch (error) {
+    console.error('Get login logs error:', error)
+    throw error
+  }
+}

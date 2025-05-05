@@ -1,4 +1,3 @@
-const { where } = require('sequelize');
 const Map = require('../model/mapModel');
 const { v4: uuidv4 } = require('uuid');
 

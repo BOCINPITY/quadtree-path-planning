@@ -25,6 +25,10 @@ const router = createRouter({
           path:"user",
           component: () => import('@/views/Setting/UserSetting.vue'),
         },
+        {
+          path:"apc",
+          component: () => import('@/views/AlgorithmPerformanceComparison/AlgorithmPerformanceComparison.vue'),
+        },
       ],
     },
     {

@@ -1,6 +1,8 @@
 const User = require('../model/userModel'); // 引入 User 模型
+const LoginLog = require('../model/loginLogModel'); // 引入登录日志模型
 const bcrypt = require('bcrypt'); // 用于密码加密
 const jwt = require('jsonwebtoken'); // 引入 jsonwebtoken
+
 
 // 定义一个密钥，用于签名 token
 const JWT_SECRET = 'cles-dev';
@@ -28,6 +30,15 @@ const loginOrRegister = async (ctx) => {
 
             // 生成 token
             const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: TOKEN_EXPIRATION_TIME });
+            
+            // 记录登录日志
+            await LoginLog.create({
+                userId: user.id,
+                ipAddress: ctx.ip,
+                loginTime: new Date(),
+                userAgent: ctx.headers['user-agent'] || 'unknown',
+            });
+
             ctx.status = 201;
             ctx.body = {
                 message: '注册成功',
@@ -47,6 +58,14 @@ const loginOrRegister = async (ctx) => {
 
         // 生成 token
         const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: TOKEN_EXPIRATION_TIME });
+
+        // 记录登录日志
+        await LoginLog.create({
+            userId: user.id,
+            ipAddress: ctx.ip,
+            loginTime: new Date(),
+            userAgent: ctx.headers['user-agent'] || 'unknown',
+        });
 
         // 返回登录成功信息
         ctx.status = 200;

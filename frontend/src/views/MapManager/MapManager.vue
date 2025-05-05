@@ -6,6 +6,7 @@
       <el-table-column prop="description" label="描述" />
       <el-table-column prop="width" label="宽度/px" />
       <el-table-column prop="height" label="高度/px" />
+      <el-table-column prop="minThreshold" label="最小分割阈值/px" />
       <el-table-column label="起点">
         <template #default="scope">
           <span>{{ formatPoint(scope.row.startPoint) }}</span>
@@ -39,15 +40,15 @@
           ></span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="200">
+      <el-table-column label="操作" width="100">
         <template #default="scope">
-          <el-button size="small" @click="handleDetail(scope.row)">查看</el-button>
+          <!-- <el-button size="small" @click="handleDetail(scope.row)">查看</el-button> -->
           <el-button size="small" type="danger" @click="deleteMap(scope.row.id)"
             >删除</el-button
           >
-          <el-button size="small" type="success" @click="exportMap(scope.row)"
+          <!-- <el-button size="small" type="success" @click="exportMap(scope.row)"
             >导出</el-button
-          >
+          > -->
         </template>
       </el-table-column>
     </el-table>

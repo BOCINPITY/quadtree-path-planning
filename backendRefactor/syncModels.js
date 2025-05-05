@@ -1,6 +1,7 @@
 const sequelize = require('./utils/db');
 const User = require('./model/userModel');
 const Map = require('./model/mapModel');
+const LoginLog = require('./model/loginLogModel');
 
 const syncModels = async () => {
     try {

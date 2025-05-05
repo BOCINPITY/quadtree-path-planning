@@ -14,12 +14,12 @@
         <p>我们的系统提供一系列强大的功能，帮助您更好的学习四叉树与路径规划。</p>
         <div class="feature-row">
           <div class="feature-content">
-            <h3>专业地图编辑器</h3>
+            <h3>在线地图编辑器</h3>
             <p>地图编辑器，自定义您的地图</p>
             <ul class="feature-list">
               <li>障碍物添加</li>
               <li>地图保存</li>
-              <li>地图导入导出</li>
+              <li>多种参数调节</li>
             </ul>
           </div>
           <div class="feature-image1"></div>
@@ -217,7 +217,7 @@ const start = () => {
   width: 45%;
   height: 300px;
   background-color: #f0f0f0;
-  background-image: url("https://p3-flow-imagex-sign.byteimg.com/ocean-cloud-tos/image_generation/cd9623c20d45bbc713cc4963d1497878_1741676569049154135.jpeg~tplv-a9rns2rl98-image.jpeg?rk3s=25bff839&x-expires=1773212569&x-signature=a68ifjODqgC8EclaUNWWyYlWZx4%3D");
+  background-image: url("https://clesbit.top/public/uploads/984f33f4-ffea-4acd-98ca-0a4529e45c13.png");
   background-size: cover;
   background-position: center;
   transition: transform 0.3s ease;

@@ -29,7 +29,7 @@
           ></el-option>
         </el-select>
       </div>
-      <div class="title">寻路算法选择</div>
+      <div class="title">寻路配置</div>
       <div class="algorithm-select">
         <el-select v-model="selectedAlgorithm" placeholder="请选择算法">
           <el-option label="A*" :value="'A*'"></el-option>
@@ -44,6 +44,19 @@
               <el-radio :value="'diagonal'">对角距离</el-radio>
               <el-radio :value="'chebyshev'">切比雪夫距离</el-radio>
             </el-radio-group>
+          </div>
+        </div>
+        <div class="algorithm-params">
+          <div class="param-item">
+            <div class="label">寻路动画单步时长</div>
+            <div>
+              <el-input-number
+                v-model="pathFindingAnimationDuration"
+                :min="0.1"
+                :max="3"
+                :step="0.1"
+              ></el-input-number>
+            </div>
           </div>
         </div>
       </div>
@@ -211,7 +224,7 @@
           <el-color-picker v-model.trim="dividColor" />
         </div>
         <div class="props-item">
-          <div class="label">单步动画时长(秒)</div>
+          <div class="label">四叉分割单步动画时长</div>
           <el-input-number v-model="animationDuration" :min="0.1" :max="3" :step="0.1" />
         </div>
         <div class="props-item">
@@ -352,6 +365,7 @@ const startShape = ref<Konva.Image | null>(null);
 const endShape = ref<Konva.Image | null>(null);
 const persistentLayer = ref(new Konva.Layer());
 const quadTree = ref<QuadTreeNode | null>(null);
+const pathFindingAnimationDuration = ref(0.1);
 // 新增一个数组来记录每一步添加的分割线
 const stepDividingLines = ref<Konva.Line[][]>([]);
 // 定义图片对象
@@ -414,6 +428,10 @@ const skipQuadTreeAnimation = () => {
 };
 type PathFindingAlgorithm = "A*" | "Dijkstra";
 const handlCreateOrUpdateMapBtnClick = () => {
+  if (!selectedMap.value && obstacles.value.length === 0) {
+    ElMessage.warning("请先添加障碍物");
+    return;
+  }
   if (selectedMap.value) {
     const map = mapList.value?.find((item) => item.id === selectedMap.value);
     if (map) {
@@ -561,7 +579,9 @@ const handlePathFinding = async () => {
     tempLayer.value.batchDraw();
 
     // 等待一段时间以展示动画效果
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) =>
+      setTimeout(resolve, pathFindingAnimationDuration.value * 1000)
+    );
   }
 
   // 渲染最终路径
@@ -680,6 +700,9 @@ const handleSelectMapChange = async (id: number) => {
   const map = mapList.value?.find((item) => item.id === id);
   stageConfig.value.width = map?.width || 820;
   stageConfig.value.height = map?.height || 580;
+  dividColor.value = map?.dividColor || "#0077ff";
+  minThreshold.value = map?.minThreshold || 20;
+
   if (map && map.obstacles) {
     obstacles.value = map.obstacles.map((v) => ({
       ...v,
@@ -1253,6 +1276,8 @@ const initializeState = () => {
   obstacles.value = [];
   animationQuadTreeSplitSteps.value = [];
   currentQuadTreeSplitStep.value = 0;
+  pathFindingAnimationDuration.value = 0.1;
+  animationDuration.value = 0.1;
   selectedAlgorithm.value = "A*";
   selectedMap.value = undefined;
   startPoint.value = { x: -1, y: -1 };

@@ -24,6 +24,12 @@
             <template #title>用户设置</template>
           </el-menu-item>
         </RouterLink>
+        <!-- <RouterLink to="/system/apc">
+          <el-menu-item index="4" class="menu-item">
+            <el-icon><DataAnalysis /></el-icon>
+            <template #title>算法性能对比</template>
+          </el-menu-item>
+        </RouterLink> -->
       </el-menu>
 
       <div
@@ -48,7 +54,7 @@
 </template>
 
 <script lang="ts" setup>
-import { House, Place, User } from "@element-plus/icons-vue";
+import { House, Place, User, DataAnalysis } from "@element-plus/icons-vue";
 import { ref, watchEffect } from "vue";
 import { useRouter } from "vue-router";
 import { ArrowLeft, ArrowRight } from "@element-plus/icons-vue";
@@ -73,11 +79,13 @@ watchEffect(() => {
     activeMenu.value = "2";
   } else if (activeMenu.value === "/system/mapmanager") {
     activeMenu.value = "3";
+  } else if (activeMenu.value === "/system/apc") {
+    activeMenu.value = "4";
   }
 });
 </script>
 
-<style>
+<style scoped>
 .child-router-view {
   flex: 1;
 }
@@ -105,5 +113,9 @@ watchEffect(() => {
   transform: translateX(-30%);
   transition: left 0.3s ease;
   cursor: pointer;
+}
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 </style>
