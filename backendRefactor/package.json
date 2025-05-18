@@ -3,12 +3,13 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "sync:database": "node syncModels.js",
+    "dev": "npx nodemon index.js",
+    "start":"node index.js",
+    "sync": "node syncModels.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "author": "clesbit <208023732@qq.com> (https://clesbit.com/)",
+  "author": "clesbit <208023732@qq.com> (https://clesbit.top/)",
   "license": "MIT",
   "description": "",
   "dependencies": {

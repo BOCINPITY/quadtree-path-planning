@@ -7,6 +7,7 @@ import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 export default defineConfig({
+  base: process.env.NODE_ENV === 'production' ? 'cles-dev' : '', // 根据环境设置基础路径
   plugins: [
     vue(),
     vueDevTools(),
@@ -25,7 +26,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:3000', // 代理到本地服务器
+        target: process.env.NODE_ENV === 'production' ? 'https://clesbit.top/clespro/api' : 'http://localhost:3000', // 根据环境切换代理目标
         changeOrigin: true, // 支持跨域
         rewrite: (path) => path.replace(/^\/api/, ''), // 去掉 /api 前缀
       },

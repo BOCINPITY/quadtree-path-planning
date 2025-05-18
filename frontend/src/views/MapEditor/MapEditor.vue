@@ -346,6 +346,13 @@ import type { Obstacles, SelectedObstaclesDto } from "@/@types/dto";
 import { buildQuadTreeFrontend } from "@/utils/quadTree";
 import { ElMessage } from "element-plus";
 import { gsap } from "gsap";
+import {
+  countNodes,
+  calculateAverageObstacleCoverage,
+  calculateMaxObstacleCoverage,
+  calculateTreeDepth,
+  countLeafNodes,
+} from "@/utils/quadtreeBuildTest";
 
 import startIcon from "@/assets/images/startpoint.png";
 import endIcon from "@/assets/images/endpoint.png";
@@ -569,7 +576,7 @@ const handlePathFinding = async () => {
         y: node.bounds.y,
         width: node.bounds.width,
         height: node.bounds.height,
-        fill: "#fadb14",
+        fill: "#fadb14", //颜色：黄
         opacity: 0.2,
       });
       tempLayer.value.add(closedNodeVisual);
@@ -1159,6 +1166,59 @@ const togglePause = () => {
   }
 };
 
+// 提取测试逻辑到独立函数
+function testQuadTreePerformance(qt: QuadTreeNode, startTime: number, endTime: number) {
+  console.group("Map Info");
+  console.log("地图宽度:", stageConfig.value.width);
+  console.log("地图高度:", stageConfig.value.height);
+  console.log("障碍物数量:", allObstacles.value.length);
+  console.log("最小阈值:", minThreshold.value);
+  console.log("障碍物比例阈值:", 0.3);
+  console.groupEnd();
+
+  const metrics = {
+    buildTime: endTime - startTime,
+    expandedNodes: countNodes(qt),
+    treeDepth: calculateTreeDepth(qt),
+    leafNodes: countLeafNodes(qt),
+    averageObstacleCoverage: calculateAverageObstacleCoverage(qt),
+    maxObstacleCoverage: calculateMaxObstacleCoverage(qt),
+  };
+
+  console.group("QuadTree Metrics");
+  console.log("构建时间 (ms):", metrics.buildTime.toFixed(2));
+  console.log("扩展节点数:", metrics.expandedNodes);
+  console.log("四叉树深度:", metrics.treeDepth);
+  console.log("叶子节点数:", metrics.leafNodes);
+  console.log("平均障碍物覆盖率:", metrics.averageObstacleCoverage.toFixed(2));
+  console.log("最大障碍物覆盖率:", metrics.maxObstacleCoverage.toFixed(2));
+  console.groupEnd();
+
+  // 将测试结果格式化为文本
+  const logEntry = `
+  Map Info:
+  - 地图宽度: ${stageConfig.value.width}
+  - 地图高度: ${stageConfig.value.height}
+  - 障碍物数量: ${allObstacles.value.length}
+  - 最小阈值: ${minThreshold.value}
+  - 障碍物比例阈值: 0.3
+
+  QuadTree Metrics:
+  - 构建时间 (ms): ${metrics.buildTime.toFixed(2)}
+  - 扩展节点数: ${metrics.expandedNodes}
+  - 四叉树深度: ${metrics.treeDepth}
+  - 叶子节点数: ${metrics.leafNodes}
+  - 平均障碍物覆盖率: ${metrics.averageObstacleCoverage.toFixed(2)}
+  - 最大障碍物覆盖率: ${metrics.maxObstacleCoverage.toFixed(2)}
+
+  -------------------------------
+  `;
+  console.log(logEntry);
+
+  return metrics;
+}
+
+// 主函数中调用测试逻辑
 const visualizeQuadTreeWithAnimation = async () => {
   try {
     gsap.globalTimeline.clear();
@@ -1171,6 +1231,7 @@ const visualizeQuadTreeWithAnimation = async () => {
     stepDividingLines.value = []; // 重置分割线记录
 
     const { width, height } = stageConfig.value;
+    const startTime = performance.now();
     const qt = buildQuadTreeFrontend({
       width,
       height,
@@ -1178,9 +1239,14 @@ const visualizeQuadTreeWithAnimation = async () => {
       minThreshold: minThreshold.value,
       obstacleRatioThreshold: 0.3,
     });
+    const endTime = performance.now();
+
+    // 调用测试逻辑
+    testQuadTreePerformance(qt, startTime, endTime);
+
     quadTree.value = qt;
 
-    animationQuadTreeSplitSteps.value = generateQuadTreeSteps(quadTree.value); //层序遍历
+    animationQuadTreeSplitSteps.value = generateQuadTreeSteps(quadTree.value); // 层序遍历
     currentQuadTreeSplitStep.value = 0;
     await autoPlaySteps();
   } catch (error) {

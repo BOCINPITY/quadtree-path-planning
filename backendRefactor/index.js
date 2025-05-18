@@ -14,9 +14,9 @@ app.use(swaggerMiddleware); // 使用提取后的swagger中间件
 // 全局错误处理器
 app.use(globalErrorMiddleware);
 
+
 // 日志记录中间件
 app.use(loggingMiddleware);
-
 app.use(cors()); // 处理跨域请求
 app.use(require('koa-bodyparser')()); // 解析请求体
 

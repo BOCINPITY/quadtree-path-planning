@@ -2,7 +2,7 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
 const request = axios.create({
-  baseURL: import.meta.env.MODE === 'development' ? '/api' : 'http://your-production-url.com/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api', // 从环境变量读取 baseURL
   timeout: 10000,
 })
 

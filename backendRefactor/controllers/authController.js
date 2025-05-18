@@ -2,14 +2,11 @@ const User = require('../model/userModel'); // 引入 User 模型
 const LoginLog = require('../model/loginLogModel'); // 引入登录日志模型
 const bcrypt = require('bcrypt'); // 用于密码加密
 const jwt = require('jsonwebtoken'); // 引入 jsonwebtoken
-
-
-// 定义一个密钥，用于签名 token
-const JWT_SECRET = 'cles-dev';
-const TOKEN_EXPIRATION_TIME = '7d'; // token 过期时间
+const { JWT_SECRET, TOKEN_EXPIRATION_TIME } = require('../config'); // 引入配置文件
 
 const loginOrRegister = async (ctx) => {
     const { email, password } = ctx.request.body;
+    console.log(email, password)
     //默认的用户名，如果没有传入用户名，则使用邮箱作为用户名
     if (!email || !password) {
         ctx.status = 400;
@@ -80,7 +77,9 @@ const loginOrRegister = async (ctx) => {
         ctx.body = { message: '服务器错误' };
     }
 };
+const register = async (ctx) => {
 
+}
 
 module.exports = {
     loginOrRegister,

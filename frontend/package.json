@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --port 5173",
-    "build": "run-p type-check \"build-only {@}\" --",
+    "dev": "set NODE_ENV=development && vite --port 5173",
+    "build": "set NODE_ENV=production && run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
     "build-only": "vite build",
     "type-check": "vue-tsc --build",

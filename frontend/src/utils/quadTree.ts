@@ -19,7 +19,7 @@ export interface QuadTreeNode {
   hCost?: number
   fCost?: number
   parent?: QuadTreeNode
-  neighbors?: QuadTreeNode[] // 存储邻居节点
+  neighbors?: QuadTreeNode[]
 }
 
 export interface QuadTreeRequest {
@@ -77,23 +77,14 @@ export function buildQuadTreeFrontend(request: QuadTreeRequest): QuadTreeNode {
   const allLeafNodes: QuadTreeNode[] = [];
 
   function recursiveBuild(x: number, y: number, w: number, h: number): QuadTreeNode {
-    const bounds = {
-      x,
-      y,
-      width: w,
-      height: h,
-      midX: x + w / 2,
-      midY: y + h / 2,
-    }
+    const bounds = {x,y,width: w,height: h,midX: x + w / 2,midY: y + h / 2}
     const obstacleArea = calculateObstacleAreaInBounds(obstacles, bounds)
     const totalArea = w * h
     const obstacleRatio = obstacleArea / totalArea
 
     const node: QuadTreeNode = {
-      bounds,
-      isLeaf: true,
-      obstacleCount: obstacleArea,
-      isWalkable: obstacleRatio <= obstacleRatioThreshold,
+      bounds,isLeaf: true,
+      obstacleCount: obstacleArea,isWalkable: obstacleRatio <= obstacleRatioThreshold
     }
 
     // 如果区域不包含障碍物或已经达到最小分割阈值，则停止分割
@@ -137,24 +128,3 @@ export function buildQuadTreeFrontend(request: QuadTreeRequest): QuadTreeNode {
 
   return root;
 }
-
-/**
- *
- * @param root 四叉树的根节点
- * @description 四叉树的遍历函数，返回所有叶子节点，遍历
- * @returns 所有叶子节点的数组
- */
-export const flattenQuadTree = (root: QuadTreeNode): QuadTreeNode[] => {
-  const nodes: QuadTreeNode[] = [];
-  const traverse = (node: QuadTreeNode) => {
-    if (node.isLeaf) {
-      nodes.push(node);
-    } else if (node.children) {
-      for (const child of node.children) {
-        traverse(child);
-      }
-    }
-  };
-  traverse(root);
-  return nodes;
-};
