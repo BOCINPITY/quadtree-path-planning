@@ -33,7 +33,7 @@ const router = createRouter({
     },
     {
       path: '/login',
-      component: () => import('@/views/Login/index.vue'),
+      component: () => import('@/views/Login/LoginComponent.vue'),
     },
   ],
 })
@@ -42,11 +42,11 @@ router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
   const isAuthenticated = authStore.isAuthenticated
 
-  // Public routes that don't require authentication
+  // 公开的路由
   const publicRoutes = ['/', '/login']
 
   if (!publicRoutes.includes(to.path) && !isAuthenticated) {
-    // Redirect to login if not authenticated
+    // 如果用户未认证且试图访问非公开路由，则重定向到登录页面
     next('/login')
   } else {
     next()

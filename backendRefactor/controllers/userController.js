@@ -17,7 +17,7 @@ const createUser = async (ctx) => {
         ctx.status = 201;
     } catch (error) {
         ctx.status = 400;
-        ctx.body = { error: error.message };
+        ctx.body = { message: error.message };
     }
 }
 
@@ -31,7 +31,7 @@ const getUsers = async (ctx) => {
         ctx.body = users
     } catch (error) {
         ctx.status = 500;
-        ctx.body = { error: error.message };
+        ctx.body = { message: error.message };
     }
 }
 
@@ -47,11 +47,11 @@ const getUserById = async (ctx) => {
             ctx.body = user;
         } else {
             ctx.status = 404;
-            ctx.body = { error: 'User not found' };
+            ctx.body = { message: '未找到该用户' };
         }
     } catch (error) {
         ctx.status = 500;
-        ctx.body = { error: error.message };
+        ctx.body = { message: error.message };
     }
 }
 
@@ -74,12 +74,12 @@ const updateUser = async (ctx) => {
             ctx.status = 200;
             ctx.body = updatedUser;
         } else {
-            ctx.status = 404;
-            ctx.body = { error: 'User not found' };
+            ctx.status = 400;
+            ctx.body = { message: '更新用户信息失败' };
         }
     } catch (error) {
         ctx.status = 500;
-        ctx.body = { error: error.message };
+        ctx.body = { message: error.message };
     }
 }
 
@@ -95,12 +95,12 @@ const deleteUser = async (ctx) => {
         if (deleted) {
             ctx.status = 204; // No content
         } else {
-            ctx.status = 404;
-            ctx.body = { error: 'User not found' };
+            ctx.status = 400;
+            ctx.body = { message: '删除用户失败' };
         }
     } catch (error) {
         ctx.status = 500;
-        ctx.body = { error: error.message };
+        ctx.body = { message: error.message };
     }
 }
 /**
@@ -117,14 +117,14 @@ const updatePassword = async (ctx) => {
         const user = await User.findByPk(id);
         if (!user) {
             ctx.status = 404;
-            ctx.body = { error: '用户不存在' };
+            ctx.body = { message: '用户不存在' };
             return;
         }
         // 验证旧密码
         const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
         if (!isPasswordValid) {
             ctx.status = 400;
-            ctx.body = { error: '旧密码错误' };
+            ctx.body = { message: '旧密码错误' };
             return;
         }
 
@@ -141,11 +141,11 @@ const updatePassword = async (ctx) => {
             ctx.body = { message: '密码修改成功' };
         } else {
             ctx.status = 404;
-            ctx.body = { error: '用户不存在' };
+            ctx.body = { message: '用户不存在' };
         }
     } catch (error) {
         ctx.status = 500;
-        ctx.body = { error: error.message };
+        ctx.body = { message: error.message };
     }
 };
 

@@ -32,18 +32,21 @@ request.interceptors.response.use(
     // 处理响应错误
     if (error.response) {
       const { status } = error.response
-      (error.response.data.error ? ElMessage.error(error.response.data.error) : null)
       if (status === 401) {
-        console.error('Unauthorized: Redirecting to login')
-        //触发登出逻辑或跳转到登录页
+        ElMessage.error('未授权，请登录')
         window.location.href = '/login'
       } else if (status === 403) {
-        console.error('Forbidden: Access denied')
+        ElMessage.error('没有权限访问该资源')
       } else if (status === 500) {
-        console.error('Server Error: Please try again later')
+        ElMessage.error('服务端错误，请稍后再试')
+      }else if (status === 400) {
+        ElMessage.error(error.response.data.message)
+      }else if (status === 404) {
+        ElMessage.error('请求的资源未找到')
       }
     } else {
-      console.error('Network Error:', error.message)
+      console.error('网络错误', error.message)
+      ElMessage.error('网络错误，请检查您的网络连接')
     }
     return Promise.reject(error)
   },
