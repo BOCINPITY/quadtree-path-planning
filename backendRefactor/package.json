@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "npx nodemon index.js",
-    "start":"node index.js",
+    "start": "node index.js",
     "sync": "node syncModels.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -22,6 +22,7 @@
     "koa-static": "^5.0.0",
     "log4js": "^6.9.1",
     "mysql2": "^3.14.0",
+    "nodemailer": "^7.0.3",
     "sequelize": "^6.37.7",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-koa": "^0.0.1",

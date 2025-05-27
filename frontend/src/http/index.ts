@@ -36,7 +36,11 @@ request.interceptors.response.use(
         ElMessage.error('未授权，请登录')
         window.location.href = '/login'
       } else if (status === 403) {
-        ElMessage.error('没有权限访问该资源')
+        //表明未登录
+        window.location.href = '/login'
+        //清空localStorage
+        localStorage.clear()
+        ElMessage.error('没有权限访问该资源,请登录')
       } else if (status === 500) {
         ElMessage.error('服务端错误，请稍后再试')
       }else if (status === 400) {
