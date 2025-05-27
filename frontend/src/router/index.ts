@@ -29,6 +29,10 @@ const router = createRouter({
           path:"apc",
           component: () => import('@/views/AlgorithmPerformanceComparison/AlgorithmPerformanceComparison.vue'),
         },
+        {
+          path:"open_maps_community",
+          component: () => import('@/views/OpenMapsCommunity/OpenMapsCommunity.vue'),
+        },
       ],
     },
     {
