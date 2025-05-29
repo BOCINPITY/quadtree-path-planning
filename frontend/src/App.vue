@@ -6,21 +6,12 @@
     </div>
     <div class="info">
       <UserInfo />
-      <a
-        href="https://github.com/BOCINPITY/cles-dev"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <svg
-          class="github-icon"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          width="36"
-          height="36"
-        >
+      <a href="https://gitee.com/bocinpity/cles-dev" target="_blank" rel="noopener noreferrer">
+        <svg t="1748532675760" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg"
+          p-id="5016" width="36" height="36">
           <path
-            d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"
-          />
+            d="M512 1021.72444445A509.72444445 509.72444445 0 1 1 512 2.27555555a509.72444445 509.72444445 0 0 1 0 1019.4488889z m257.99338667-566.37667556H480.54272a25.19495111 25.19495111 0 0 0-25.19495111 25.19495111v62.91456c0 13.90819555 11.28675555 25.19495111 25.12213333 25.19495111h176.21902223c13.98101333 0 25.19495111 11.28675555 25.1949511 25.12213334v12.59747555c0 41.72458667-33.78744889 75.51203555-75.51203555 75.51203555H367.23825778a25.19495111 25.19495111 0 0 1-25.12213333-25.12213333V417.62816c0-41.72458667 33.78744889-75.51203555 75.43921777-75.51203555h352.43804445c13.83537778 0 25.12213333-11.28675555 25.12213333-25.19495112v-62.91456a25.19495111 25.19495111 0 0 0-25.12213333-25.19495111h-352.43804445a188.74368 188.74368 0 0 0-188.74368 188.81649778v352.36522667c0 13.90819555 11.28675555 25.19495111 25.19495111 25.19495111h371.22503112a169.88387555 169.88387555 0 0 0 169.95669333-169.88387556V480.54272a25.19495111 25.19495111 0 0 0-25.19495111-25.19495111z"
+            fill="#C71D23" p-id="5017"></path>
         </svg>
       </a>
     </div>
@@ -31,48 +22,53 @@
   </main>
 </template>
 <script lang="ts" setup>
-import UserInfo from "./components/UserInfo.vue";
+  import UserInfo from "./components/UserInfo.vue";
 </script>
 <style scoped>
-.el-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  background-color: rgb(255, 255, 255);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 5%;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  z-index: 100;
-  padding: 10px;
-}
-.logo {
-  cursor: pointer;
-  color: #000;
-  border-radius: 8px;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-}
-.logo img {
-  margin: 0 10px;
-  width: 2vw;
-  min-width: 30px;
-}
-.info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-/* 正常状态下的图标颜色 */
-.github-icon {
-  fill: #000;
-}
-/* 悬停状态下的图标颜色 */
-a:hover .github-icon {
-  fill: #007bff;
-  transition: all 0.3s ease;
-}
+  .el-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background-color: rgb(255, 255, 255);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 5%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    padding: 10px;
+  }
+
+  .logo {
+    cursor: pointer;
+    color: #000;
+    border-radius: 8px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+  }
+
+  .logo img {
+    margin: 0 10px;
+    width: 2vw;
+    min-width: 30px;
+  }
+
+  .info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* 正常状态下的图标颜色 */
+  .github-icon {
+    fill: #000;
+  }
+
+  /* 悬停状态下的图标颜色 */
+  a:hover .github-icon {
+    fill: #007bff;
+    transition: all 0.3s ease;
+  }
 </style>

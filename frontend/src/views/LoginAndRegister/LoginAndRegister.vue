@@ -1,10 +1,10 @@
 <template>
-  <div class="login_form">
-    <form class="form_container">
+  <div class="login_form" >
+    <form class="form_container" v-loading="loading">
       <div class="logo_container">
         <img src="../../assets/logo.png" alt="" />
       </div>
-      <div class="title_container">
+      <div class="title_container" >
         <p class="title">
           {{ isLoginView ? "登录您的账号" : "注册一个账号来使用我们的系统" }}
         </p>
@@ -17,11 +17,11 @@
         <label class="input_label" for="email">邮箱地址</label>
         <input placeholder="请输入您的邮箱地址" v-model="email" type="text" class="input_field" id="email" />
       </div>
-      <div class="input_container " v-if="!isLoginView">
+      <div class="input_container" v-if="!isLoginView">
         <label class="input_label" for="code">验证码</label>
         <div class="code">
           <input placeholder="请输入验证码" v-model="code" type="text" class="input_field" id="code" />
-          <el-button :disabled="getverifyCodeStatus" @click="getverifyCode" type="primary"
+          <el-button :disabled="getverifyCodeStatus" @click="getverifyCode" type="primary"  v-loading="getverifyCodeLoading"
             style="height: 40px;border-radius: 8px;margin-left: 20px;"> {{ countdown > 0 ? countdown + '秒后重新获取' :
               '获取验证码' }}
           </el-button>
@@ -41,7 +41,7 @@
         </span>
       </button>
     </form>
-    <div class="forget_password">忘记密码</div>
+
   </div>
 </template>
 
@@ -58,6 +58,8 @@
   const password = ref("");
   const username = ref("");
   const code = ref("");
+  const loading = ref(false);
+  const getverifyCodeLoading = ref(false);
   const getverifyCodeStatus = ref(false);
   //验证码倒计时
   const countdown = ref(0);
@@ -92,22 +94,28 @@
   };
   const loginSubmit = async() => {
     try {
+      loading.value = true;
       await authStore.loginUser(email.value, password.value);
       ElMessage.success(`登录成功，欢迎回来！${authStore.user?.name}`);
       router.push("/system");
     } catch (error) {
       ElMessage.error("登录失败，请检查您的邮箱和密码");
       console.error("Login failed:", error);
+    }finally {
+      loading.value = false;
     }
   }
   const registerSubmit = async() => {
     try {
+      loading.value = true;
       const res = await register(email.value, code.value, username.value, password.value);
       ElMessage.success(res.message);
       isLoginView.value = true; // 切换到登录视图
     } catch (error) {
       ElMessage.error("注册失败，请检查您的输入");
       console.error("Register failed:", error);
+    }finally {
+      loading.value = false;
     }
   }
 
@@ -128,6 +136,7 @@
     if (countdown.value > 0) return; // 防止重复点击
     try {
       getverifyCodeStatus.value = true;
+      getverifyCodeLoading.value = true;
       const res = await getCode(email.value);
       ElMessage.success(res.message);
       countdown.value = 60; // 设置倒计时为60秒
@@ -142,6 +151,8 @@
     } catch (error) {
       console.error("获取验证码失败:", error);
       ElMessage.error("获取验证码失败，请稍后再试");
+    }finally {
+      getverifyCodeLoading.value = false;
     }
   }
 

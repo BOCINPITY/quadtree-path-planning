@@ -47,6 +47,7 @@ const getAllMaps = async (ctx) => {
                 'obstacles',
                 'dividColor',
                 'minThreshold',
+                'isOpenSource',
                 'createdAt',
                 'updatedAt'
             ],
@@ -82,14 +83,15 @@ const getMapById = async (ctx) => {
 const updateMap = async (ctx) => {
     try {
         const { id } = ctx.params;
-        const { name,description, width, height, startPoint, endPoint, obstacles,dividColor,minThreshold } = ctx.request.body;
+        const { name, description, width, height, startPoint, endPoint, obstacles, dividColor, minThreshold, isOpenSource } = ctx.request.body;
         const map = await Map.findByPk(id);
         if (!map) {
             ctx.status = 404;
             ctx.body = { message: 'Map not found' };
             return;
         }
-        await map.update({ name,description, width, height, startPoint, endPoint, obstacles,dividColor,minThreshold });
+        console.log(isOpenSource);
+        await map.update({ name, description, width, height, startPoint, endPoint, obstacles, dividColor, minThreshold, isOpenSource });
         ctx.status = 200;
         ctx.body = map;
     } catch (error) {
@@ -115,6 +117,43 @@ const deleteMap = async (ctx) => {
         ctx.body = { message: 'Error deleting map', error };
     }
 };
+const getOpenSourceMaps = async (ctx) => {
+    try {
+        const maps = await Map.findAll({
+            where: {
+                isOpenSource: 1
+            },
+            attributes: [
+                'id',
+                'name',
+                'description',
+                'width',
+                'height',
+                'startPoint',
+                'endPoint',
+                'obstacles',
+                'dividColor',
+                'minThreshold',
+                'isOpenSource',
+                'createdAt',
+                'updatedAt',
+            ],
+            include: [
+                {
+                    model: require('../model/userModel'),
+                    as: 'user',
+                    attributes: { exclude: ['password'] } // 排除密码字段
+                }
+            ],
+            order: [['createdAt', 'DESC']]
+        });
+        ctx.status = 200;
+        ctx.body = maps;
+    } catch (error) {
+        ctx.status = 500;
+        ctx.body = { message: 'Error fetching open source maps', error };
+    }
+};
 
 module.exports = {
     createMap,
@@ -122,4 +161,5 @@ module.exports = {
     getMapById,
     updateMap,
     deleteMap,
+    getOpenSourceMaps
 };

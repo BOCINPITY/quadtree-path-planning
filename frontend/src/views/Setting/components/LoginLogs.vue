@@ -1,11 +1,11 @@
 <template>
   <div class="login-logs">
-    <el-table :data="logs" style="width: 100%" border stripe>
-      <el-table-column prop="id" label="ID" width="50" />
+    <el-table :data="logs" style="width: 400px" border stripe>
+      <!-- <el-table-column prop="id" label="ID" width="50" /> -->
       <el-table-column prop="username" label="用户名" />
-      <el-table-column prop="ipAddress" label="IP地址" />
+      <el-table-column prop="ipAddress" label="登录地" />
       <el-table-column prop="loginTime" label="登录时间" />
-      <el-table-column prop="userAgent" label="用户代理" width="700" />
+      <!-- <el-table-column prop="userAgent" label="用户代理" width="700" /> -->
     </el-table>
     <el-pagination
       background

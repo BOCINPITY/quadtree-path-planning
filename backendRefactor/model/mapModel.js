@@ -62,6 +62,11 @@ const Map = sequelize.define('Map', {
         allowNull: true,
         defaultValue: [],
     },
+    isOpenSource: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false, // 默认不开源
+    },
     // 用户 ID，外键，不能为空
     userId: {
         type: DataTypes.INTEGER,
@@ -77,6 +82,6 @@ const Map = sequelize.define('Map', {
     // 启用时间戳，自动生成 createdAt 和 updatedAt 字段
     timestamps: true,
 });
-
+Map.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 // 导出 Map 模型
 module.exports = Map;

@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt'); // 用于密码加密
 const jwt = require('jsonwebtoken'); // 引入 jsonwebtoken
 const { JWT_SECRET, TOKEN_EXPIRATION_TIME } = require('../config'); // 引入配置文件
 const codeService = require('../service/mailService'); // 引入验证码服务
+const { default: axios } = require('axios');
 
 const register = async (ctx) => {
     const { email,username, password,code } = ctx.request.body;
@@ -76,11 +77,12 @@ const login = async (ctx) => {
 
         // 生成 token
         const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: TOKEN_EXPIRATION_TIME });
-
+        const res = await axios.get(`http://ip-api.com/json/${ctx.ip}`)
+        
         // 记录登录日志
         await LoginLog.create({
             userId: user.id,
-            ipAddress: ctx.ip,
+            ipAddress: res.data.city || '未知ip',
             loginTime: new Date(),
             userAgent: ctx.headers['user-agent'] || 'unknown',
         });
