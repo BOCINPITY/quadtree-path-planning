@@ -34,6 +34,7 @@ const playbackStep = ref(0)
 const isPlaying = ref(false)
 const playbackSpeed = ref<(typeof playbackSpeeds)[number]>(1)
 const selectedTreeNodeId = ref('q0')
+const insightTab = ref<'tree' | 'results'>('tree')
 let playbackTimer: number | undefined
 
 const tree = computed(() => buildQuadTree(columns.value, rows.value, blocked.value))
@@ -372,7 +373,6 @@ loadPreset(activePreset.value)
           </label>
         </section>
 
-        <button class="run-button" @click="runExperiments">运行两种算法 <span>→</span></button>
       </aside>
 
       <section class="panel stage-panel">
@@ -383,9 +383,12 @@ loadPreset(activePreset.value)
             <span><i class="legend-visited"></i>已扩展</span>
             <span><i class="legend-path"></i>最终路径</span>
           </div>
-          <div class="dimensions">
-            {{ columns }} × {{ rows }} cells
-            <span v-if="hoverCell">· {{ hoverCell.x }}, {{ hoverCell.y }}</span>
+          <div class="stage-actions">
+            <div class="dimensions">
+              {{ columns }} × {{ rows }} cells
+              <span v-if="hoverCell">· {{ hoverCell.x }}, {{ hoverCell.y }}</span>
+            </div>
+            <button class="run-inline" @click="runExperiments">运行 <span>→</span></button>
           </div>
         </div>
 
@@ -493,35 +496,55 @@ loadPreset(activePreset.value)
           <SpeedSelect :model-value="playbackSpeed" :options="playbackSpeeds" @update:model-value="changePlaybackSpeed" />
         </div>
       </section>
-    </section>
 
-    <QuadTreeInspector :root="tree" :selected-id="selectedTreeNode.id" @select="selectTreeNode" />
+      <aside class="panel insight-panel">
+        <div class="insight-tabs" role="tablist" aria-label="观察面板">
+          <button :class="{ active: insightTab === 'tree' }" role="tab" :aria-selected="insightTab === 'tree'" @click="insightTab = 'tree'">树结构</button>
+          <button :class="{ active: insightTab === 'results' }" role="tab" :aria-selected="insightTab === 'results'" @click="insightTab = 'results'">算法结果</button>
+        </div>
 
-    <section class="metrics-grid">
-      <article class="metric-card tree-card">
-        <div class="metric-heading"><span>空间索引</span><b>QUADTREE</b></div>
-        <div class="big-number">{{ leaves.length }}</div>
-        <div class="metric-caption">叶节点</div>
-        <dl>
-          <div><dt>自由节点</dt><dd>{{ freeLeaves.length }}</dd></div>
-          <div><dt>最大深度</dt><dd>{{ maxDepth }}</dd></div>
-          <div><dt>障碍单元</dt><dd>{{ blocked.size }}</dd></div>
-        </dl>
-      </article>
+        <QuadTreeInspector
+          v-if="insightTab === 'tree'"
+          :root="tree"
+          :selected-id="selectedTreeNode.id"
+          compact
+          embedded
+          @select="selectTreeNode"
+        />
 
-      <article v-for="name in (['A*', 'Dijkstra'] as Algorithm[])" :key="name" class="metric-card" :class="{ selected: algorithm === name }" @click="algorithm = name">
-        <div class="metric-heading"><span>搜索结果</span><b>{{ name }}</b></div>
-        <template v-if="results[name]">
-          <div class="big-number">{{ displayedDistance(results[name]!).toFixed(2) }}</div>
-          <div class="metric-caption">路径长度</div>
-          <dl>
-            <div><dt>扩展节点</dt><dd>{{ results[name]!.visitedOrder.length }}</dd></div>
-            <div><dt>计算耗时</dt><dd>{{ results[name]!.durationMs.toFixed(3) }} ms</dd></div>
-            <div><dt>状态</dt><dd :class="results[name]!.found ? 'success' : 'failure'">{{ results[name]!.found ? '已找到' : '不可达' }}</dd></div>
-          </dl>
-        </template>
-        <div v-else class="empty-result">运行实验后显示真实指标</div>
-      </article>
+        <section v-else class="side-results">
+          <header>
+            <div class="eyebrow">运行指标</div>
+            <h2>算法对比</h2>
+            <p>在同一张地图上对比两种搜索策略。</p>
+          </header>
+
+          <article class="tree-summary-card">
+            <div><span>叶节点</span><b>{{ leaves.length }}</b></div>
+            <div><span>自由节点</span><b>{{ freeLeaves.length }}</b></div>
+            <div><span>最大深度</span><b>{{ maxDepth }}</b></div>
+          </article>
+
+          <article
+            v-for="name in (['A*', 'Dijkstra'] as Algorithm[])"
+            :key="name"
+            class="algorithm-card"
+            :class="{ selected: algorithm === name }"
+            @click="algorithm = name"
+          >
+            <div class="algorithm-heading"><b>{{ name }}</b><span>{{ results[name]?.found ? '已找到' : results[name] ? '不可达' : '等待运行' }}</span></div>
+            <template v-if="results[name]">
+              <strong>{{ displayedDistance(results[name]!).toFixed(2) }}</strong>
+              <small>路径长度</small>
+              <dl>
+                <div><dt>扩展节点</dt><dd>{{ results[name]!.visitedOrder.length }}</dd></div>
+                <div><dt>计算耗时</dt><dd>{{ results[name]!.durationMs.toFixed(3) }} ms</dd></div>
+              </dl>
+            </template>
+            <p v-else>运行实验后显示真实指标</p>
+          </article>
+        </section>
+      </aside>
     </section>
 
     <footer>

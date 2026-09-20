@@ -6,6 +6,8 @@ import type { NodeState, QuadNode } from '../core/types'
 const props = defineProps<{
   root: QuadNode
   selectedId: string
+  compact?: boolean
+  embedded?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -67,7 +69,7 @@ watch(() => props.selectedId, revealSelection)
 </script>
 
 <template>
-  <section class="inspector panel">
+  <section class="inspector" :class="{ panel: !embedded, compact, embedded }">
     <header class="inspector-header">
       <div>
         <div class="eyebrow">空间结构</div>
@@ -148,6 +150,8 @@ watch(() => props.selectedId, revealSelection)
   margin-top: 18px;
   overflow: hidden;
 }
+
+.inspector.embedded { margin-top: 0; }
 
 .inspector-header {
   display: flex;
@@ -257,6 +261,35 @@ h2 { font-size: 21px; letter-spacing: -0.025em; }
 
 .node-detail dl { grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 20px; }
 .node-detail p { margin-top: 18px; color: var(--secondary); font-size: 11px; line-height: 1.55; }
+
+.inspector.compact {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.compact .inspector-header {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 12px;
+  padding: 15px 16px 12px;
+}
+
+.compact .inspector-header h2 { font-size: 17px; }
+.compact .inspector-header p { display: none; }
+.compact .tree-summary { width: 100%; gap: 0; justify-content: space-between; }
+.compact .tree-summary span { text-align: left; }
+.compact .tree-summary b { font-size: 14px; }
+.compact .path-strip { min-height: 42px; padding: 6px 16px; }
+.compact .inspector-body { display: flex; min-height: 0; flex: 1; flex-direction: column; }
+.compact .tree-list { min-height: 190px; max-height: none; flex: 1; border-right: 0; border-bottom: 1px solid var(--separator); }
+.compact .tree-row { margin-left: calc(var(--depth) * 14px); }
+.compact .node-detail { flex: none; padding: 14px 16px; }
+.compact .detail-preview { display: none; }
+.compact .detail-title { margin-top: 0; }
+.compact .node-detail dl { gap: 8px; margin-top: 12px; }
+.compact .node-detail p { margin-top: 10px; }
 
 @media (max-width: 760px) {
   .inspector-header { align-items: flex-start; flex-direction: column; }
