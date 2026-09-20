@@ -18,6 +18,7 @@ const tool = ref<Tool>('wall')
 const algorithm = ref<Algorithm>('A*')
 const showQuadTree = ref(true)
 const isDrawing = ref(false)
+const hoverCell = ref<Point | null>(null)
 const svg = ref<SVGSVGElement | null>(null)
 const results = ref<Record<Algorithm, SearchResult | null>>({ 'A*': null, Dijkstra: null })
 const playbackStep = ref(0)
@@ -132,9 +133,14 @@ function runExperiments() {
 
 function cellFromPointer(event: PointerEvent): Point | null {
   if (!svg.value) return null
-  const rect = svg.value.getBoundingClientRect()
-  const x = Math.floor(((event.clientX - rect.left) / rect.width) * columns.value)
-  const y = Math.floor(((event.clientY - rect.top) / rect.height) * rows.value)
+  const transform = svg.value.getScreenCTM()
+  if (!transform) return null
+  const pointer = svg.value.createSVGPoint()
+  pointer.x = event.clientX
+  pointer.y = event.clientY
+  const local = pointer.matrixTransform(transform.inverse())
+  const x = Math.floor(local.x)
+  const y = Math.floor(local.y)
   if (x < 0 || y < 0 || x >= columns.value || y >= rows.value) return null
   return { x, y }
 }
@@ -162,17 +168,29 @@ function paint(point: Point) {
 function pointerDown(event: PointerEvent) {
   isDrawing.value = true
   const point = cellFromPointer(event)
-  if (point) paint(point)
+  hoverCell.value = point
+  if (point) {
+    svg.value?.setPointerCapture(event.pointerId)
+    paint(point)
+  }
 }
 
 function pointerMove(event: PointerEvent) {
-  if (!isDrawing.value || !['wall', 'erase'].includes(tool.value)) return
   const point = cellFromPointer(event)
-  if (point) paint(point)
+  hoverCell.value = point
+  if (point && isDrawing.value && ['wall', 'erase'].includes(tool.value)) paint(point)
 }
 
-function stopDrawing() {
+function stopDrawing(event?: PointerEvent) {
   isDrawing.value = false
+  if (event && svg.value?.hasPointerCapture(event.pointerId)) {
+    svg.value.releasePointerCapture(event.pointerId)
+  }
+}
+
+function leaveMap(event: PointerEvent) {
+  stopDrawing(event)
+  hoverCell.value = null
 }
 
 function togglePlayback() {
@@ -317,7 +335,10 @@ loadPreset(activePreset.value)
             <span><i class="legend-visited"></i>已扩展</span>
             <span><i class="legend-path"></i>最终路径</span>
           </div>
-          <div class="dimensions">{{ columns }} × {{ rows }} cells</div>
+          <div class="dimensions">
+            {{ columns }} × {{ rows }} cells
+            <span v-if="hoverCell">· {{ hoverCell.x }}, {{ hoverCell.y }}</span>
+          </div>
         </div>
 
         <div class="map-wrap">
@@ -329,11 +350,11 @@ loadPreset(activePreset.value)
             @pointerdown="pointerDown"
             @pointermove="pointerMove"
             @pointerup="stopDrawing"
-            @pointerleave="stopDrawing"
+            @pointerleave="leaveMap"
           >
             <defs>
               <pattern id="grid" width="1" height="1" patternUnits="userSpaceOnUse">
-                <path d="M 1 0 L 0 0 0 1" fill="none" stroke="rgba(148,163,184,.2)" stroke-width=".035" />
+                <path d="M 1 0 L 0 0 0 1" fill="none" stroke="rgba(60,60,67,.34)" stroke-width=".055" />
               </pattern>
             </defs>
             <rect width="100%" height="100%" fill="#f7f7f9" />
@@ -377,6 +398,18 @@ loadPreset(activePreset.value)
             <polyline v-if="pathPoints" :points="pathPoints" fill="none" stroke="#ff9f0a" stroke-width=".22" stroke-linecap="round" stroke-linejoin="round" />
             <circle :cx="start.x + .5" :cy="start.y + .5" r=".34" fill="#34c759" stroke="#ffffff" stroke-width=".12" />
             <circle :cx="goal.x + .5" :cy="goal.y + .5" r=".34" fill="#ff3b30" stroke="#ffffff" stroke-width=".12" />
+            <rect
+              v-if="hoverCell"
+              :x="hoverCell.x + .04"
+              :y="hoverCell.y + .04"
+              width=".92"
+              height=".92"
+              rx=".1"
+              fill="rgba(0,122,255,.08)"
+              stroke="#007aff"
+              stroke-width=".11"
+              pointer-events="none"
+            />
           </svg>
         </div>
 
