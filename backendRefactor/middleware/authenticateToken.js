@@ -1,6 +1,5 @@
 const jwt = require('jsonwebtoken'); // 引入 jsonwebtoken
-
-const JWT_SECRET = 'replace-this-in-production'; // 与生成 token 时使用的密钥保持一致
+const { JWT_SECRET } = require('../config');
 
 // 验证 token 的中间件
 const authenticateToken = async (ctx, next) => { // 确保函数是 async

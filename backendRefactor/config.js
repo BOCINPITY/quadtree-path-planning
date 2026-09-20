@@ -1,20 +1,22 @@
+require('dotenv').config();
+
 module.exports = {
-    JWT_SECRET: 'replace-this-in-production', // JWT 密钥
-    TOKEN_EXPIRATION_TIME: '7d', // token 过期时间
+    JWT_SECRET: process.env.JWT_SECRET || 'replace-this-in-production',
+    TOKEN_EXPIRATION_TIME: process.env.TOKEN_EXPIRATION_TIME || '7d',
     DB_CONFIG: {
-        host: 'localhost',
-        port: 3305,
-        user:'',
-        password:'',
-        database:'cles_dev',
+        host: process.env.DB_HOST || 'localhost',
+        port: Number(process.env.DB_PORT || 3306),
+        user: process.env.DB_USER || 'root',
+        password: process.env.DB_PASSWORD || '',
+        database: process.env.DB_NAME || 'quadpath',
     },
     EMAIL: {
-        host: 'smtp.qq.com', // SMTP服务器地址
-        port: 465,
-        secure: true, // true for 465, false for other ports
+        host: process.env.SMTP_HOST || 'smtp.qq.com',
+        port: Number(process.env.SMTP_PORT || 465),
+        secure: process.env.SMTP_SECURE !== 'false',
         auth: {
-            user: '', // 发件人邮箱
-            pass: '' // 邮箱授权码（不是邮箱密码）
-        }
-    }
-}
+            user: process.env.SMTP_USER || '',
+            pass: process.env.SMTP_PASS || '',
+        },
+    },
+};
