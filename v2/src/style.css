@@ -199,6 +199,7 @@ select:focus { border-color: rgba(0, 122, 255, 0.6); box-shadow: 0 0 0 3px var(-
 }
 
 .tool-grid button { display: flex; align-items: center; gap: 7px; }
+.tool-grid .inspect-tool { grid-column: 1 / -1; justify-content: center; }
 .tool-grid button:active, .segmented button:active { transform: scale(0.97); }
 .tool-grid button.active, .segmented button.active { background: var(--surface-solid); color: var(--blue); box-shadow: 0 1px 5px rgba(0, 0, 0, 0.12); }
 .tool-grid span { width: 12px; display: inline-grid; place-items: center; }

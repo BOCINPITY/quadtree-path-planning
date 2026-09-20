@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildLeafGraph, buildQuadTree, collectLeaves, findLeaf, shareEdge } from '../src/core/quadtree'
+import { buildLeafGraph, buildQuadTree, collectLeaves, collectNodes, findLeaf, findNodePath, shareEdge } from '../src/core/quadtree'
 import { searchPath } from '../src/core/pathfinding'
 import { cellKey, type QuadNode } from '../src/core/types'
 
@@ -19,6 +19,17 @@ describe('quadtree', () => {
     const diagonal = node('c', 2, 4, 1, 1)
     expect(shareEdge(a, b)).toBe(true)
     expect(shareEdge(a, diagonal)).toBe(false)
+  })
+
+  it('returns the root-to-leaf path for tree inspection', () => {
+    const tree = buildQuadTree(8, 8, new Set([cellKey(6, 6)]))
+    const leaf = findLeaf(tree, { x: 6.5, y: 6.5 })!
+    const path = findNodePath(tree, leaf.id)!
+
+    expect(path[0]).toBe(tree)
+    expect(path.at(-1)).toBe(leaf)
+    expect(path.map((node) => node.depth)).toEqual(path.map((_, index) => index))
+    expect(collectNodes(tree).length).toBeGreaterThan(collectLeaves(tree).length)
   })
 })
 

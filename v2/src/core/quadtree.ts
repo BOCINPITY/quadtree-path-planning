@@ -71,6 +71,28 @@ export function collectLeaves(root: QuadNode): QuadNode[] {
   return root.children.flatMap(collectLeaves)
 }
 
+export function collectNodes(root: QuadNode): QuadNode[] {
+  return [root, ...root.children.flatMap(collectNodes)]
+}
+
+export function findNode(root: QuadNode, id: string): QuadNode | null {
+  if (root.id === id) return root
+  for (const child of root.children) {
+    const match = findNode(child, id)
+    if (match) return match
+  }
+  return null
+}
+
+export function findNodePath(root: QuadNode, id: string): QuadNode[] | null {
+  if (root.id === id) return [root]
+  for (const child of root.children) {
+    const childPath = findNodePath(child, id)
+    if (childPath) return [root, ...childPath]
+  }
+  return null
+}
+
 export function findLeaf(root: QuadNode, point: Point): QuadNode | null {
   const contains = (node: QuadNode) =>
     point.x >= node.rect.x &&

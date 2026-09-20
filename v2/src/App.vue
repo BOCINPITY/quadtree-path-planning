@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import PlaybackControls from './components/PlaybackControls.vue'
+import QuadTreeInspector from './components/QuadTreeInspector.vue'
 import SpeedSelect from './components/SpeedSelect.vue'
-import { buildLeafGraph, buildQuadTree, collectLeaves, findLeaf } from './core/quadtree'
+import { buildLeafGraph, buildQuadTree, collectLeaves, findLeaf, findNode } from './core/quadtree'
 import { searchPath } from './core/pathfinding'
 import { presets } from './core/presets'
 import { cellKey, centerOf, type Point, type SearchResult } from './core/types'
 
-type Tool = 'wall' | 'erase' | 'start' | 'goal'
+type Tool = 'inspect' | 'wall' | 'erase' | 'start' | 'goal'
 type Algorithm = SearchResult['algorithm']
 
 const MIN_GRID_SIZE = 8
@@ -22,7 +23,7 @@ const rows = ref(20)
 const blocked = ref<Set<string>>(new Set())
 const start = ref<Point>({ x: 2, y: 16 })
 const goal = ref<Point>({ x: 29, y: 3 })
-const tool = ref<Tool>('wall')
+const tool = ref<Tool>('inspect')
 const algorithm = ref<Algorithm>('A*')
 const showQuadTree = ref(true)
 const isDrawing = ref(false)
@@ -32,6 +33,7 @@ const results = ref<Record<Algorithm, SearchResult | null>>({ 'A*': null, Dijkst
 const playbackStep = ref(0)
 const isPlaying = ref(false)
 const playbackSpeed = ref<(typeof playbackSpeeds)[number]>(1)
+const selectedTreeNodeId = ref('q0')
 let playbackTimer: number | undefined
 
 const tree = computed(() => buildQuadTree(columns.value, rows.value, blocked.value))
@@ -39,6 +41,7 @@ const leaves = computed(() => collectLeaves(tree.value))
 const graph = computed(() => buildLeafGraph(leaves.value))
 const freeLeaves = computed(() => leaves.value.filter((leaf) => leaf.state === 'free'))
 const maxDepth = computed(() => Math.max(...leaves.value.map((leaf) => leaf.depth)))
+const selectedTreeNode = computed(() => findNode(tree.value, selectedTreeNodeId.value) ?? tree.value)
 const currentResult = computed(() => results.value[algorithm.value])
 const playbackTotal = computed(() => currentResult.value?.visitedOrder.length ?? 0)
 const canStepBack = computed(() => playbackStep.value > 0)
@@ -89,6 +92,7 @@ function loadPreset(id: string) {
   start.value = { ...preset.start }
   goal.value = { ...preset.goal }
   clearResults()
+  inspectPoint(start.value)
 }
 
 function updateGridSize(axis: 'columns' | 'rows', event: Event) {
@@ -119,6 +123,7 @@ function updateGridSize(axis: 'columns' | 'rows', event: Event) {
   blocked.value = new Set(blocked.value)
   activePreset.value = ''
   clearResults()
+  inspectPoint(start.value)
 }
 
 function clearResults() {
@@ -158,6 +163,7 @@ function cellFromPointer(event: PointerEvent): Point | null {
 }
 
 function paint(point: Point) {
+  if (tool.value === 'inspect') return
   const key = cellKey(point.x, point.y)
   if (tool.value === 'start') {
     blocked.value.delete(key)
@@ -177,6 +183,15 @@ function paint(point: Point) {
   clearResults()
 }
 
+function inspectPoint(point: Point) {
+  const node = findLeaf(tree.value, cellCenter(point))
+  selectedTreeNodeId.value = node?.id ?? tree.value.id
+}
+
+function selectTreeNode(id: string) {
+  selectedTreeNodeId.value = findNode(tree.value, id)?.id ?? tree.value.id
+}
+
 function pointerDown(event: PointerEvent) {
   isDrawing.value = true
   const point = cellFromPointer(event)
@@ -184,13 +199,17 @@ function pointerDown(event: PointerEvent) {
   if (point) {
     svg.value?.setPointerCapture(event.pointerId)
     paint(point)
+    inspectPoint(point)
   }
 }
 
 function pointerMove(event: PointerEvent) {
   const point = cellFromPointer(event)
   hoverCell.value = point
-  if (point && isDrawing.value && ['wall', 'erase'].includes(tool.value)) paint(point)
+  if (point && isDrawing.value && ['wall', 'erase'].includes(tool.value)) {
+    paint(point)
+    inspectPoint(point)
+  }
 }
 
 function stopDrawing(event?: PointerEvent) {
@@ -277,6 +296,7 @@ async function importMap(event: Event) {
   blocked.value = new Set(parsed.blocked)
   activePreset.value = ''
   clearResults()
+  inspectPoint(start.value)
   input.value = ''
 }
 
@@ -331,12 +351,13 @@ loadPreset(activePreset.value)
         <section>
           <div class="section-label">编辑工具</div>
           <div class="tool-grid">
+            <button class="inspect-tool" :class="{ active: tool === 'inspect' }" @click="tool = 'inspect'"><span>◎</span>观察节点</button>
             <button :class="{ active: tool === 'wall' }" @click="tool = 'wall'"><span>▦</span>障碍</button>
             <button :class="{ active: tool === 'erase' }" @click="tool = 'erase'"><span>◇</span>擦除</button>
             <button :class="{ active: tool === 'start' }" @click="tool = 'start'"><span class="start-dot"></span>起点</button>
             <button :class="{ active: tool === 'goal' }" @click="tool = 'goal'"><span class="goal-dot"></span>终点</button>
           </div>
-          <p class="hint">在地图上点击或拖动。四叉树会实时重建。</p>
+          <p class="hint">观察模式用于定位树节点；编辑地图后四叉树会实时重建。</p>
         </section>
 
         <section>
@@ -422,6 +443,17 @@ loadPreset(activePreset.value)
                 stroke-width=".075"
               />
             </g>
+            <rect
+              :x="selectedTreeNode.rect.x + .04"
+              :y="selectedTreeNode.rect.y + .04"
+              :width="Math.max(0, selectedTreeNode.rect.width - .08)"
+              :height="Math.max(0, selectedTreeNode.rect.height - .08)"
+              rx=".12"
+              fill="rgba(88,86,214,.08)"
+              stroke="#5856d6"
+              stroke-width=".16"
+              pointer-events="none"
+            />
             <polyline v-if="pathPoints" :points="pathPoints" fill="none" stroke="#ff9f0a" stroke-width=".22" stroke-linecap="round" stroke-linejoin="round" />
             <circle :cx="start.x + .5" :cy="start.y + .5" r=".34" fill="#34c759" stroke="#ffffff" stroke-width=".12" />
             <circle :cx="goal.x + .5" :cy="goal.y + .5" r=".34" fill="#ff3b30" stroke="#ffffff" stroke-width=".12" />
@@ -462,6 +494,8 @@ loadPreset(activePreset.value)
         </div>
       </section>
     </section>
+
+    <QuadTreeInspector :root="tree" :selected-id="selectedTreeNode.id" @select="selectTreeNode" />
 
     <section class="metrics-grid">
       <article class="metric-card tree-card">
