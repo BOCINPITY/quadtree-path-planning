@@ -8,6 +8,12 @@ import { cellKey, centerOf, type Point, type SearchResult } from './core/types'
 type Tool = 'wall' | 'erase' | 'start' | 'goal'
 type Algorithm = SearchResult['algorithm']
 
+const MIN_GRID_SIZE = 8
+const MAX_COLUMNS = 128
+const MAX_ROWS = 80
+const PLAYBACK_INTERVAL = 55
+const playbackSpeeds = [0.5, 1, 2, 4] as const
+
 const activePreset = ref(presets[0].id)
 const columns = ref(32)
 const rows = ref(20)
@@ -23,6 +29,7 @@ const svg = ref<SVGSVGElement | null>(null)
 const results = ref<Record<Algorithm, SearchResult | null>>({ 'A*': null, Dijkstra: null })
 const playbackStep = ref(0)
 const isPlaying = ref(false)
+const playbackSpeed = ref<(typeof playbackSpeeds)[number]>(1)
 let playbackTimer: number | undefined
 
 const tree = computed(() => buildQuadTree(columns.value, rows.value, blocked.value))
@@ -81,8 +88,8 @@ function loadPreset(id: string) {
 
 function updateGridSize(axis: 'columns' | 'rows', event: Event) {
   const value = Number((event.target as HTMLInputElement).value)
-  const nextColumns = axis === 'columns' ? Math.min(64, Math.max(8, value)) : columns.value
-  const nextRows = axis === 'rows' ? Math.min(40, Math.max(8, value)) : rows.value
+  const nextColumns = axis === 'columns' ? Math.min(MAX_COLUMNS, Math.max(MIN_GRID_SIZE, value)) : columns.value
+  const nextRows = axis === 'rows' ? Math.min(MAX_ROWS, Math.max(MIN_GRID_SIZE, value)) : rows.value
 
   columns.value = nextColumns
   rows.value = nextRows
@@ -201,11 +208,21 @@ function togglePlayback() {
   }
   if (playbackStep.value >= currentResult.value.visitedOrder.length) playbackStep.value = 0
   isPlaying.value = true
+  startPlaybackTimer()
+}
+
+function startPlaybackTimer() {
+  if (playbackTimer !== undefined) window.clearInterval(playbackTimer)
   playbackTimer = window.setInterval(() => {
     const total = currentResult.value?.visitedOrder.length ?? 0
     playbackStep.value += 1
     if (playbackStep.value >= total) stopPlayback()
-  }, 55)
+  }, PLAYBACK_INTERVAL / playbackSpeed.value)
+}
+
+function changePlaybackSpeed(event: Event) {
+  playbackSpeed.value = Number((event.target as HTMLSelectElement).value) as (typeof playbackSpeeds)[number]
+  if (isPlaying.value) startPlaybackTimer()
 }
 
 function stopPlayback() {
@@ -243,8 +260,8 @@ async function importMap(event: Event) {
     blocked: string[]
   }
   if (!Number.isInteger(parsed.columns) || !Number.isInteger(parsed.rows) || !Array.isArray(parsed.blocked)) return
-  columns.value = Math.min(64, Math.max(8, parsed.columns))
-  rows.value = Math.min(40, Math.max(8, parsed.rows))
+  columns.value = Math.min(MAX_COLUMNS, Math.max(MIN_GRID_SIZE, parsed.columns))
+  rows.value = Math.min(MAX_ROWS, Math.max(MIN_GRID_SIZE, parsed.rows))
   start.value = parsed.start
   goal.value = parsed.goal
   blocked.value = new Set(parsed.blocked)
@@ -290,12 +307,12 @@ loadPreset(activePreset.value)
           <div class="section-label">网格尺寸</div>
           <label class="size-control">
             <span>列</span>
-            <input :value="columns" type="range" min="8" max="64" step="1" @input="updateGridSize('columns', $event)" />
+            <input :value="columns" type="range" :min="MIN_GRID_SIZE" :max="MAX_COLUMNS" step="1" @input="updateGridSize('columns', $event)" />
             <output>{{ columns }}</output>
           </label>
           <label class="size-control">
             <span>行</span>
-            <input :value="rows" type="range" min="8" max="40" step="1" @input="updateGridSize('rows', $event)" />
+            <input :value="rows" type="range" :min="MIN_GRID_SIZE" :max="MAX_ROWS" step="1" @input="updateGridSize('rows', $event)" />
             <output>{{ rows }}</output>
           </label>
           <p class="grid-summary">共 {{ columns * rows }} 个单元格</p>
@@ -423,6 +440,9 @@ loadPreset(activePreset.value)
             :disabled="!currentResult"
           />
           <span>{{ playbackStep }} / {{ currentResult?.visitedOrder.length ?? 0 }}</span>
+          <select class="speed-select" :value="playbackSpeed" aria-label="播放速度" @change="changePlaybackSpeed">
+            <option v-for="speed in playbackSpeeds" :key="speed" :value="speed">{{ speed }}×</option>
+          </select>
         </div>
       </section>
     </section>

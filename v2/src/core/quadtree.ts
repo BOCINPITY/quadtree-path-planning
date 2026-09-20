@@ -107,16 +107,35 @@ export function buildLeafGraph(leaves: QuadNode[]): Map<string, Edge[]> {
   const freeLeaves = leaves.filter((leaf) => leaf.state === 'free')
   const graph = new Map<string, Edge[]>(freeLeaves.map((leaf) => [leaf.id, []]))
 
-  for (let i = 0; i < freeLeaves.length; i += 1) {
-    for (let j = i + 1; j < freeLeaves.length; j += 1) {
-      const a = freeLeaves[i]
-      const b = freeLeaves[j]
-      if (!shareEdge(a, b)) continue
-      const ac = centerOf(a)
-      const bc = centerOf(b)
-      const cost = Math.hypot(ac.x - bc.x, ac.y - bc.y)
-      graph.get(a.id)?.push({ to: b.id, cost })
-      graph.get(b.id)?.push({ to: a.id, cost })
+  const leftEdges = new Map<string, QuadNode>()
+  const topEdges = new Map<string, QuadNode>()
+
+  for (const leaf of freeLeaves) {
+    const { x, y, width, height } = leaf.rect
+    for (let offset = 0; offset < height; offset += 1) leftEdges.set(`${x},${y + offset}`, leaf)
+    for (let offset = 0; offset < width; offset += 1) topEdges.set(`${x + offset},${y}`, leaf)
+  }
+
+  const connected = new Set<string>()
+  const connect = (a: QuadNode, b: QuadNode | undefined) => {
+    if (!b || a.id === b.id) return
+    const pair = a.id < b.id ? `${a.id}:${b.id}` : `${b.id}:${a.id}`
+    if (connected.has(pair)) return
+    connected.add(pair)
+    const ac = centerOf(a)
+    const bc = centerOf(b)
+    const cost = Math.hypot(ac.x - bc.x, ac.y - bc.y)
+    graph.get(a.id)?.push({ to: b.id, cost })
+    graph.get(b.id)?.push({ to: a.id, cost })
+  }
+
+  for (const leaf of freeLeaves) {
+    const { x, y, width, height } = leaf.rect
+    for (let offset = 0; offset < height; offset += 1) {
+      connect(leaf, leftEdges.get(`${x + width},${y + offset}`))
+    }
+    for (let offset = 0; offset < width; offset += 1) {
+      connect(leaf, topEdges.get(`${x + offset},${y + height}`))
     }
   }
   return graph

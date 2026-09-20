@@ -283,7 +283,7 @@ select:focus { border-color: rgba(0, 122, 255, 0.6); box-shadow: 0 0 0 3px var(-
 .playback {
   height: 50px;
   display: grid;
-  grid-template-columns: 32px 1fr 70px;
+  grid-template-columns: 32px minmax(0, 1fr) 70px 62px;
   align-items: center;
   gap: 12px;
   border-top: 1px solid var(--separator);
@@ -304,6 +304,14 @@ select:focus { border-color: rgba(0, 122, 255, 0.6); box-shadow: 0 0 0 3px var(-
 }
 
 .play-button:disabled { opacity: 0.35; cursor: default; }
+.speed-select {
+  width: 62px;
+  border-radius: 8px;
+  padding: 6px 20px 6px 8px;
+  background-color: #f0f0f2;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
 input[type='range'] { width: 100%; accent-color: var(--blue); }
 
 .metrics-grid {
