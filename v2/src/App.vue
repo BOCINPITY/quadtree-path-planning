@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import SpeedSelect from './components/SpeedSelect.vue'
 import { buildLeafGraph, buildQuadTree, collectLeaves, findLeaf } from './core/quadtree'
 import { searchPath } from './core/pathfinding'
 import { presets } from './core/presets'
@@ -220,8 +221,8 @@ function startPlaybackTimer() {
   }, PLAYBACK_INTERVAL / playbackSpeed.value)
 }
 
-function changePlaybackSpeed(event: Event) {
-  playbackSpeed.value = Number((event.target as HTMLSelectElement).value) as (typeof playbackSpeeds)[number]
+function changePlaybackSpeed(speed: number) {
+  playbackSpeed.value = speed as (typeof playbackSpeeds)[number]
   if (isPlaying.value) startPlaybackTimer()
 }
 
@@ -440,9 +441,7 @@ loadPreset(activePreset.value)
             :disabled="!currentResult"
           />
           <span>{{ playbackStep }} / {{ currentResult?.visitedOrder.length ?? 0 }}</span>
-          <select class="speed-select" :value="playbackSpeed" aria-label="播放速度" @change="changePlaybackSpeed">
-            <option v-for="speed in playbackSpeeds" :key="speed" :value="speed">{{ speed }}×</option>
-          </select>
+          <SpeedSelect :model-value="playbackSpeed" :options="playbackSpeeds" @update:model-value="changePlaybackSpeed" />
         </div>
       </section>
     </section>
