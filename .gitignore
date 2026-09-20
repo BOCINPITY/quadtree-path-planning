@@ -15,4 +15,3 @@ dist/
 
 *.log
 *.tsbuildinfo
-backendRefactor/logs/
