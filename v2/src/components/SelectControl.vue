@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AppleMenu from './AppleMenu.vue'
 
 const props = withDefaults(defineProps<{
@@ -15,13 +16,15 @@ const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
 
+const { t } = useI18n()
+
 const anchorEl = ref<HTMLElement | null>(null)
 const open = ref(false)
 
 const menuOptions = computed(() => props.options.map((option) => ({ value: option.value, label: option.label })))
 
 const selectedLabel = computed(() =>
-  props.options.find((option) => option.value === props.modelValue)?.label ?? '请选择',
+  props.options.find((option) => option.value === props.modelValue)?.label ?? t('common.choose'),
 )
 
 function toggle() {

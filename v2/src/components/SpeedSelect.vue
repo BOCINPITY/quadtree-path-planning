@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AppleMenu from './AppleMenu.vue'
 
 const props = withDefaults(defineProps<{
@@ -8,8 +9,10 @@ const props = withDefaults(defineProps<{
   label?: string
 }>(), {
   options: () => [0.5, 1, 2, 4],
-  label: '播放速度',
 })
+
+const { t } = useI18n()
+const accessibleLabel = computed(() => props.label ?? t('playback.speed'))
 
 const emit = defineEmits<{
   'update:modelValue': [value: number]
@@ -34,7 +37,7 @@ function select(value: string | number) {
     <button
       type="button"
       class="speed-trigger"
-      :aria-label="label"
+      :aria-label="accessibleLabel"
       aria-haspopup="listbox"
       :aria-expanded="open"
       @click="toggle"
@@ -47,7 +50,7 @@ function select(value: string | number) {
       :options="menuOptions"
       :model-value="modelValue"
       :anchor-el="anchorEl"
-      :label="label"
+      :label="accessibleLabel"
       align="right"
       @select="select"
     />

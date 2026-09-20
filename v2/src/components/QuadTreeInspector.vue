@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { collectLeaves, collectNodes, findNode, findNodePath } from '../core/quadtree'
-import type { NodeState, QuadNode } from '../core/types'
+import type { QuadNode } from '../core/types'
 
 const props = defineProps<{
   root: QuadNode
@@ -16,11 +17,7 @@ const emit = defineEmits<{
 }>()
 
 const focusId = ref(props.root.id)
-const stateLabels: Record<NodeState, string> = {
-  free: '空闲',
-  blocked: '障碍',
-  mixed: '混合',
-}
+const { t, locale } = useI18n()
 
 const selectedNode = computed(() => findNode(props.root, props.selectedId) ?? props.root)
 const selectedPath = computed(() => findNodePath(props.root, selectedNode.value.id) ?? [props.root])
@@ -35,17 +32,21 @@ function selectNode(node: QuadNode) {
 }
 
 function nodeLabel(node: QuadNode) {
-  if (node.depth === 0) return '根节点'
-  return node.children.length > 0 ? `D${node.depth} 分区` : `D${node.depth} 叶节点`
+  if (node.depth === 0) return t('tree.nodeNames.root')
+  return t(node.children.length > 0 ? 'tree.nodeNames.partition' : 'tree.nodeNames.leaf', { depth: node.depth })
+}
+
+function stateLabel(node: QuadNode) {
+  return t(`tree.states.${node.state}`)
 }
 
 function quadrantLabel(node: QuadNode) {
   const parent = focusNode.value.rect
   const horizontal = node.rect.width < parent.width
   const vertical = node.rect.height < parent.height
-  const side = horizontal ? (node.rect.x === parent.x ? '左' : '右') : ''
-  const level = vertical ? (node.rect.y === parent.y ? '上' : '下') : ''
-  return `${side}${level}` || '子区域'
+  const side = horizontal ? t(node.rect.x === parent.x ? 'tree.quadrants.left' : 'tree.quadrants.right') : ''
+  const level = vertical ? t(node.rect.y === parent.y ? 'tree.quadrants.top' : 'tree.quadrants.bottom') : ''
+  return [side, level].filter(Boolean).join(locale.value === 'zh-CN' ? '' : ' ') || t('tree.quadrants.child')
 }
 
 function quadrantStyle(node: QuadNode) {
@@ -79,43 +80,43 @@ watch([() => props.root, () => props.selectedId], syncFocusToSelection, { immedi
   <section class="inspector" :class="{ panel: !embedded, compact, embedded }">
     <header class="inspector-header">
       <div>
-        <div class="eyebrow">空间结构</div>
+        <div class="eyebrow">{{ t('tree.eyebrow') }}</div>
         <div class="title-row">
-          <h2>四叉树观察器</h2>
-          <button class="topology-button" @click="emit('openTopology')">拓扑图 <span>↗</span></button>
+          <h2>{{ t('tree.title') }}</h2>
+          <button class="topology-button" @click="emit('openTopology')">{{ t('tree.topology') }} <span>↗</span></button>
         </div>
-        <p>点击地图可定位到对应叶节点；点击树节点会反向高亮它覆盖的地图区域。</p>
+        <p>{{ t('tree.hint') }}</p>
       </div>
       <div class="tree-summary">
-        <span><b>{{ allNodes.length }}</b>总节点</span>
-        <span><b>{{ leafCount }}</b>叶节点</span>
-        <span><b>{{ selectedNode.depth }}</b>当前深度</span>
+        <span><b>{{ allNodes.length }}</b>{{ t('tree.totalNodes') }}</span>
+        <span><b>{{ leafCount }}</b>{{ t('tree.leafNodes') }}</span>
+        <span><b>{{ selectedNode.depth }}</b>{{ t('tree.currentDepth') }}</span>
       </div>
     </header>
 
-    <div class="path-strip" aria-label="从根节点到当前节点的路径">
+    <div class="path-strip" :aria-label="t('tree.rootPath')">
       <template v-for="(node, index) in selectedPath" :key="node.id">
         <button :class="{ current: node.id === selectedNode.id, focus: node.id === focusNode.id }" @click="navigateTo(node)">
-          {{ index === 0 ? '根' : `D${node.depth}` }}
+          {{ index === 0 ? t('common.root') : `D${node.depth}` }}
         </button>
         <span v-if="index < selectedPath.length - 1" aria-hidden="true">›</span>
       </template>
     </div>
 
     <div class="inspector-body">
-      <div class="focus-navigator" aria-label="聚焦式四分导航器">
+      <div class="focus-navigator" :aria-label="t('tree.navigator')">
         <div class="focus-heading">
-          <button class="back-button" :disabled="focusNode.depth === 0" aria-label="返回父节点" @click="navigateParent">‹</button>
+          <button class="back-button" :disabled="focusNode.depth === 0" :aria-label="t('tree.parent')" @click="navigateParent">‹</button>
           <button class="focus-node" @click="emit('select', focusNode.id)">
-            <span>当前分区 · D{{ focusNode.depth }}</span>
+            <span>{{ t('tree.currentPartition', { depth: focusNode.depth }) }}</span>
             <b>{{ focusNode.rect.width }} × {{ focusNode.rect.height }}</b>
           </button>
-          <span class="focus-state" :class="`badge-${focusNode.state}`">{{ stateLabels[focusNode.state] }}</span>
+          <span class="focus-state" :class="`badge-${focusNode.state}`">{{ stateLabel(focusNode) }}</span>
         </div>
 
         <div v-if="focusNode.children.length" class="split-caption">
-          <span>四个子区域保留与地图一致的方向</span>
-          <small>点击继续深入</small>
+          <span>{{ t('tree.spatialHint') }}</span>
+          <small>{{ t('tree.goDeeper') }}</small>
         </div>
 
         <div v-if="focusNode.children.length" class="quadrant-grid">
@@ -129,15 +130,15 @@ watch([() => props.root, () => props.selectedId], syncFocusToSelection, { immedi
           >
             <span class="quadrant-name">{{ quadrantLabel(node) }}</span>
             <b>{{ node.rect.width }}×{{ node.rect.height }}</b>
-            <small><i :class="`state-${node.state}`"></i>{{ stateLabels[node.state] }} · D{{ node.depth }}</small>
-            <em v-if="node.children.length">深入 ›</em>
+            <small><i :class="`state-${node.state}`"></i>{{ stateLabel(node) }} · D{{ node.depth }}</small>
+            <em v-if="node.children.length">{{ t('tree.deeper') }} ›</em>
           </button>
         </div>
 
         <div v-else class="leaf-stop" :class="`leaf-${focusNode.state}`">
-          <span>分割结束</span>
-          <b>{{ stateLabels[focusNode.state] }}叶节点</b>
-          <p>该区域内部状态一致，无需继续向下分割。</p>
+          <span>{{ t('tree.splitEnd') }}</span>
+          <b>{{ stateLabel(focusNode) }} {{ t('tree.leafNode') }}</b>
+          <p>{{ t('tree.uniformLeaf') }}</p>
         </div>
       </div>
 
@@ -147,20 +148,19 @@ watch([() => props.root, () => props.selectedId], syncFocusToSelection, { immedi
         </div>
         <div class="detail-title">
           <div>
-            <span>当前节点</span>
+            <span>{{ t('tree.currentNode') }}</span>
             <h3>{{ nodeLabel(selectedNode) }}</h3>
           </div>
-          <b :class="`badge-${selectedNode.state}`">{{ stateLabels[selectedNode.state] }}</b>
+          <b :class="`badge-${selectedNode.state}`">{{ stateLabel(selectedNode) }}</b>
         </div>
         <dl>
-          <div><dt>起点坐标</dt><dd>{{ selectedNode.rect.x }}, {{ selectedNode.rect.y }}</dd></div>
-          <div><dt>覆盖范围</dt><dd>{{ selectedNode.rect.width }} × {{ selectedNode.rect.height }}</dd></div>
-          <div><dt>子节点</dt><dd>{{ selectedNode.children.length }}</dd></div>
-          <div><dt>类型</dt><dd>{{ selectedNode.children.length ? '内部节点' : '叶节点' }}</dd></div>
+          <div><dt>{{ t('tree.origin') }}</dt><dd>{{ selectedNode.rect.x }}, {{ selectedNode.rect.y }}</dd></div>
+          <div><dt>{{ t('tree.coverage') }}</dt><dd>{{ selectedNode.rect.width }} × {{ selectedNode.rect.height }}</dd></div>
+          <div><dt>{{ t('tree.childNodes') }}</dt><dd>{{ selectedNode.children.length }}</dd></div>
+          <div><dt>{{ t('tree.type') }}</dt><dd>{{ t(selectedNode.children.length ? 'tree.internalNode' : 'tree.leafNode') }}</dd></div>
         </dl>
-        <p v-if="selectedNode.state === 'mixed'">该区域同时包含空闲和障碍单元，因此需要继续向下分割。
-        </p>
-        <p v-else>该区域状态一致，因此在此停止分割。</p>
+        <p v-if="selectedNode.state === 'mixed'">{{ t('tree.mixedHelp') }}</p>
+        <p v-else>{{ t('tree.uniformHelp') }}</p>
       </aside>
     </div>
   </section>

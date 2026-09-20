@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
 defineProps<{
   disabled: boolean
   playing: boolean
@@ -14,12 +18,12 @@ defineEmits<{
 </script>
 
 <template>
-  <div class="transport" role="group" aria-label="播放控制">
+  <div class="transport" role="group" :aria-label="t('playback.controls')">
     <button
       type="button"
       :disabled="disabled || !canStepBack"
-      aria-label="上一步"
-      title="上一步"
+      :aria-label="t('playback.previous')"
+      :title="t('playback.previous')"
       @click="$emit('stepBack')"
     >
       <span aria-hidden="true">┃◀</span>
@@ -28,8 +32,8 @@ defineEmits<{
       type="button"
       class="play"
       :disabled="disabled"
-      :aria-label="playing ? '暂停' : '播放'"
-      :title="playing ? '暂停' : '播放'"
+      :aria-label="playing ? t('playback.pause') : t('playback.play')"
+      :title="playing ? t('playback.pause') : t('playback.play')"
       @click="$emit('toggle')"
     >
       <span aria-hidden="true">{{ playing ? 'Ⅱ' : '▶' }}</span>
@@ -37,8 +41,8 @@ defineEmits<{
     <button
       type="button"
       :disabled="disabled || !canStepForward"
-      aria-label="下一步"
-      title="下一步"
+      :aria-label="t('playback.next')"
+      :title="t('playback.next')"
       @click="$emit('stepForward')"
     >
       <span aria-hidden="true">▶┃</span>

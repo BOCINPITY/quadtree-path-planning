@@ -2,8 +2,6 @@ import { cellKey, type Point } from './types'
 
 export interface MapPreset {
   id: string
-  name: string
-  description: string
   columns: number
   rows: number
   start: Point
@@ -24,8 +22,6 @@ function corridor(): MapPreset {
   }
   return {
     id: 'corridor',
-    name: '错位通道',
-    description: '穿过三道带缺口的墙，观察启发式搜索如何减少扩展节点。',
     columns: 32,
     rows: 20,
     start: { x: 2, y: 16 },
@@ -45,8 +41,6 @@ function rooms(): MapPreset {
   }
   return {
     id: 'rooms',
-    name: '连通房间',
-    description: '多个房间通过窄门连接，适合检查四叉树邻接关系。',
     columns: 32,
     rows: 20,
     start: { x: 2, y: 2 },
@@ -58,8 +52,6 @@ function rooms(): MapPreset {
 function openField(): MapPreset {
   return {
     id: 'open',
-    name: '开放平原',
-    description: '没有障碍物的基准地图，整张地图只需要一个自由叶节点。',
     columns: 32,
     rows: 20,
     start: { x: 2, y: 10 },

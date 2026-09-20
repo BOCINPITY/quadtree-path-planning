@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 interface AppleMenuOption {
   value: string | number
@@ -13,10 +14,10 @@ const props = withDefaults(defineProps<{
   anchorEl: HTMLElement | null
   align?: 'left' | 'right'
   label?: string
-}>(), {
-  align: 'left',
-  label: '选项',
-})
+}>(), { align: 'left' })
+
+const { t } = useI18n()
+const accessibleLabel = () => props.label ?? t('common.options')
 
 const emit = defineEmits<{
   'update:open': [open: boolean]
@@ -124,7 +125,7 @@ onBeforeUnmount(() => {
         class="apple-menu"
         :style="menuStyle"
         role="listbox"
-        :aria-label="label"
+        :aria-label="accessibleLabel()"
       >
         <div class="apple-menu-scroll">
           <button
