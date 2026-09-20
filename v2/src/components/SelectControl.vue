@@ -1,12 +1,10 @@
 <script setup lang="ts">
-interface SelectOption {
-  value: string
-  label: string
-}
+import { computed, ref } from 'vue'
+import AppleMenu from './AppleMenu.vue'
 
 const props = withDefaults(defineProps<{
   modelValue: string
-  options: readonly SelectOption[]
+  options: readonly { value: string; label: string }[]
   label: string
   disabled?: boolean
 }>(), {
@@ -17,23 +15,62 @@ const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
 
-function updateValue(event: Event) {
-  emit('update:modelValue', (event.target as HTMLSelectElement).value)
+const anchorEl = ref<HTMLElement | null>(null)
+const open = ref(false)
+
+const menuOptions = computed(() => props.options.map((option) => ({ value: option.value, label: option.label })))
+
+const selectedLabel = computed(() =>
+  props.options.find((option) => option.value === props.modelValue)?.label ?? '请选择',
+)
+
+function toggle() {
+  if (props.disabled) return
+  open.value = !open.value
+}
+
+function select(value: string | number) {
+  emit('update:modelValue', String(value))
 }
 </script>
 
 <template>
-  <label class="select-control" :class="{ disabled }">
-    <span class="select-value">{{ options.find((option) => option.value === modelValue)?.label ?? '请选择' }}</span>
-    <span class="chevron" aria-hidden="true"></span>
-    <select :value="props.modelValue" :aria-label="label" :disabled="disabled" @change="updateValue">
-      <option v-for="option in options" :key="option.value" :value="option.value">{{ option.label }}</option>
-    </select>
-  </label>
+  <div ref="anchorEl" class="select-control" :class="{ open, disabled }">
+    <button
+      type="button"
+      class="select-trigger"
+      :aria-label="label"
+      aria-haspopup="listbox"
+      :aria-expanded="open"
+      :disabled="disabled"
+      @click="toggle"
+    >
+      <span class="select-value">{{ selectedLabel }}</span>
+      <span class="chevron" aria-hidden="true"></span>
+    </button>
+    <AppleMenu
+      v-model:open="open"
+      :options="menuOptions"
+      :model-value="modelValue"
+      :anchor-el="anchorEl"
+      :label="label"
+      align="left"
+      @select="select"
+    />
+  </div>
 </template>
 
 <style scoped>
 .select-control {
+  position: relative;
+  width: 100%;
+}
+
+.select-control.disabled {
+  opacity: 0.45;
+}
+
+.select-trigger {
   position: relative;
   display: flex;
   width: 100%;
@@ -41,20 +78,27 @@ function updateValue(event: Event) {
   align-items: center;
   border: 1px solid transparent;
   border-radius: 10px;
+  padding: 0;
   background: #f0f0f2;
   color: #1d1d1f;
+  font: inherit;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
   transition: background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
 
-.select-control:hover { background: #e8e8ed; }
+.select-trigger:hover { background: #e8e8ed; }
+.select-trigger:focus-visible { outline: none; }
 
-.select-control:focus-within {
+.select-control:focus-within .select-trigger {
   border-color: rgba(0, 122, 255, 0.34);
   box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
 }
 
-.select-control.disabled { opacity: 0.45; cursor: default; }
+.select-control.disabled .select-trigger {
+  cursor: default;
+}
 
 .select-value {
   min-width: 0;
@@ -75,15 +119,10 @@ function updateValue(event: Event) {
   border-bottom: 1.5px solid #636366;
   transform: translateY(-2px) rotate(45deg);
   pointer-events: none;
+  transition: transform 160ms ease;
 }
 
-select {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
+.select-control.open .chevron {
+  transform: translateY(2px) rotate(225deg);
 }
 </style>

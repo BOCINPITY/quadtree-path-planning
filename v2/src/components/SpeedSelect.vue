@@ -1,5 +1,8 @@
 <script setup lang="ts">
-withDefaults(defineProps<{
+import { computed, ref } from 'vue'
+import AppleMenu from './AppleMenu.vue'
+
+const props = withDefaults(defineProps<{
   modelValue: number
   options?: readonly number[]
   label?: string
@@ -12,47 +15,80 @@ const emit = defineEmits<{
   'update:modelValue': [value: number]
 }>()
 
-function updateValue(event: Event) {
-  emit('update:modelValue', Number((event.target as HTMLSelectElement).value))
+const anchorEl = ref<HTMLElement | null>(null)
+const open = ref(false)
+
+const menuOptions = computed(() => props.options.map((option) => ({ value: option, label: `${option}×` })))
+
+function toggle() {
+  open.value = !open.value
+}
+
+function select(value: string | number) {
+  emit('update:modelValue', Number(value))
 }
 </script>
 
 <template>
-  <label class="speed-select">
-    <span class="speed-value">{{ modelValue }}×</span>
-    <span class="chevron" aria-hidden="true"></span>
-    <select :value="modelValue" :aria-label="label" @change="updateValue">
-      <option v-for="option in options" :key="option" :value="option">{{ option }}×</option>
-    </select>
-  </label>
+  <div ref="anchorEl" class="speed-select" :class="{ open }">
+    <button
+      type="button"
+      class="speed-trigger"
+      :aria-label="label"
+      aria-haspopup="listbox"
+      :aria-expanded="open"
+      @click="toggle"
+    >
+      <span class="speed-value">{{ modelValue }}×</span>
+      <span class="chevron" aria-hidden="true"></span>
+    </button>
+    <AppleMenu
+      v-model:open="open"
+      :options="menuOptions"
+      :model-value="modelValue"
+      :anchor-el="anchorEl"
+      :label="label"
+      align="right"
+      @select="select"
+    />
+  </div>
 </template>
 
 <style scoped>
 .speed-select {
   position: relative;
-  display: inline-flex;
   width: 72px;
+}
+
+.speed-trigger {
+  position: relative;
+  display: flex;
+  width: 100%;
   height: 30px;
   align-items: center;
   border: 1px solid rgba(60, 60, 67, 0.16);
   border-radius: 9px;
+  padding: 0;
   background: #f0f0f2;
   color: #1d1d1f;
+  font: inherit;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
   transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
 }
 
-.speed-select:hover { background: #e8e8ed; }
+.speed-trigger:hover { background: #e8e8ed; }
+.speed-trigger:focus-visible { outline: none; }
 
-.speed-select:focus-within {
+.speed-select:focus-within .speed-trigger {
   border-color: rgba(0, 122, 255, 0.58);
   box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.14);
 }
 
 .speed-value {
   min-width: 0;
-  padding-left: 10px;
-  padding-right: 26px;
+  padding: 0 26px 0 10px;
   overflow: visible;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
@@ -69,15 +105,10 @@ function updateValue(event: Event) {
   border-bottom: 1.5px solid #636366;
   transform: translateY(-2px) rotate(45deg);
   pointer-events: none;
+  transition: transform 160ms ease;
 }
 
-select {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
+.speed-select.open .chevron {
+  transform: translateY(2px) rotate(225deg);
 }
 </style>
