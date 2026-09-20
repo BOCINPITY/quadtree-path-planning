@@ -207,8 +207,12 @@ select:focus { border-color: rgba(0, 122, 255, 0.6); box-shadow: 0 0 0 3px var(-
 .tool-grid .inspect-tool { grid-column: 1 / -1; justify-content: center; }
 .tool-grid button:active, .segmented button:active { transform: scale(0.97); }
 .tool-grid button.active, .segmented button.active { background: var(--surface-solid); color: var(--blue); box-shadow: 0 1px 5px rgba(0, 0, 0, 0.12); }
-.tool-grid span { width: 12px; display: inline-grid; place-items: center; }
-.start-dot, .goal-dot { height: 9px; border-radius: 50%; }
+.tool-icon { display: inline-block; width: 11px; height: 11px; flex: 0 0 11px; }
+.inspect-swatch { border: 1.5px solid #5856d6; border-radius: 3px; background: rgba(88, 86, 214, 0.1); }
+.wall-swatch { border: 1px solid #636366; border-radius: 3px; background: #8e8e93; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25); }
+.erase-swatch { position: relative; border: 1px solid #aeaeb2; border-radius: 3px; background: #ffffff; }
+.erase-swatch::after { position: absolute; top: 4px; left: 1px; width: 7px; height: 1px; background: #8e8e93; content: ''; transform: rotate(-45deg); }
+.start-dot, .goal-dot { width: 10px; height: 10px; flex-basis: 10px; border: 1.5px solid #ffffff; border-radius: 50%; box-shadow: 0 0 0 1px rgba(60, 60, 67, 0.1); }
 .start-dot { background: var(--green); }
 .goal-dot { background: var(--red); }
 

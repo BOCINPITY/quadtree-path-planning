@@ -357,11 +357,11 @@ loadPreset(activePreset.value)
         <section>
           <div class="section-label">编辑工具</div>
           <div class="tool-grid">
-            <button class="inspect-tool" :class="{ active: tool === 'inspect' }" @click="tool = 'inspect'"><span>◎</span>观察节点</button>
-            <button :class="{ active: tool === 'wall' }" @click="tool = 'wall'"><span>▦</span>障碍</button>
-            <button :class="{ active: tool === 'erase' }" @click="tool = 'erase'"><span>◇</span>擦除</button>
-            <button :class="{ active: tool === 'start' }" @click="tool = 'start'"><span class="start-dot"></span>起点</button>
-            <button :class="{ active: tool === 'goal' }" @click="tool = 'goal'"><span class="goal-dot"></span>终点</button>
+            <button class="inspect-tool" :class="{ active: tool === 'inspect' }" @click="tool = 'inspect'"><span class="tool-icon inspect-swatch"></span>观察节点</button>
+            <button :class="{ active: tool === 'wall' }" @click="tool = 'wall'"><span class="tool-icon wall-swatch"></span>障碍</button>
+            <button :class="{ active: tool === 'erase' }" @click="tool = 'erase'"><span class="tool-icon erase-swatch"></span>擦除</button>
+            <button :class="{ active: tool === 'start' }" @click="tool = 'start'"><span class="tool-icon start-dot"></span>起点</button>
+            <button :class="{ active: tool === 'goal' }" @click="tool = 'goal'"><span class="tool-icon goal-dot"></span>终点</button>
           </div>
           <p class="hint">观察模式用于定位树节点；编辑地图后四叉树会实时重建。</p>
         </section>
