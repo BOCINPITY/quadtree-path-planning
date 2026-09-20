@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import PlaybackControls from './components/PlaybackControls.vue'
 import SpeedSelect from './components/SpeedSelect.vue'
 import { buildLeafGraph, buildQuadTree, collectLeaves, findLeaf } from './core/quadtree'
 import { searchPath } from './core/pathfinding'
@@ -39,6 +40,9 @@ const graph = computed(() => buildLeafGraph(leaves.value))
 const freeLeaves = computed(() => leaves.value.filter((leaf) => leaf.state === 'free'))
 const maxDepth = computed(() => Math.max(...leaves.value.map((leaf) => leaf.depth)))
 const currentResult = computed(() => results.value[algorithm.value])
+const playbackTotal = computed(() => currentResult.value?.visitedOrder.length ?? 0)
+const canStepBack = computed(() => playbackStep.value > 0)
+const canStepForward = computed(() => playbackStep.value < playbackTotal.value)
 const visitedShown = computed(() => new Set(
   currentResult.value?.visitedOrder.slice(0, playbackStep.value).map((node) => node.id) ?? [],
 ))
@@ -224,6 +228,11 @@ function startPlaybackTimer() {
 function changePlaybackSpeed(speed: number) {
   playbackSpeed.value = speed as (typeof playbackSpeeds)[number]
   if (isPlaying.value) startPlaybackTimer()
+}
+
+function stepPlayback(direction: -1 | 1) {
+  stopPlayback()
+  playbackStep.value = Math.min(playbackTotal.value, Math.max(0, playbackStep.value + direction))
 }
 
 function stopPlayback() {
@@ -432,15 +441,23 @@ loadPreset(activePreset.value)
         </div>
 
         <div class="playback">
-          <button class="play-button" :disabled="!currentResult" @click="togglePlayback">{{ isPlaying ? 'Ⅱ' : '▶' }}</button>
+          <PlaybackControls
+            :disabled="!currentResult"
+            :playing="isPlaying"
+            :can-step-back="canStepBack"
+            :can-step-forward="canStepForward"
+            @step-back="stepPlayback(-1)"
+            @toggle="togglePlayback"
+            @step-forward="stepPlayback(1)"
+          />
           <input
             v-model.number="playbackStep"
             type="range"
             min="0"
-            :max="currentResult?.visitedOrder.length ?? 0"
+            :max="playbackTotal"
             :disabled="!currentResult"
           />
-          <span>{{ playbackStep }} / {{ currentResult?.visitedOrder.length ?? 0 }}</span>
+          <span>{{ playbackStep }} / {{ playbackTotal }}</span>
           <SpeedSelect :model-value="playbackSpeed" :options="playbackSpeeds" @update:model-value="changePlaybackSpeed" />
         </div>
       </section>
