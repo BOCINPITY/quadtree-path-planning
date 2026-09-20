@@ -218,13 +218,13 @@ loadPreset(activePreset.value)
   <main class="shell">
     <header class="hero">
       <div>
-        <div class="eyebrow"><span class="pulse"></span> QUADTREE PATHFINDING LAB</div>
+        <div class="eyebrow">路径规划实验室</div>
         <h1>QuadPath <em>v2</em></h1>
         <p>把地图压缩成自适应空间，再观察搜索如何穿过它。</p>
       </div>
       <div class="hero-actions">
-        <label class="ghost-button file-button">导入地图<input type="file" accept="application/json" @change="importMap" /></label>
-        <button class="ghost-button" @click="exportMap">导出 JSON</button>
+        <label class="ghost-button file-button">导入<input type="file" accept="application/json" @change="importMap" /></label>
+        <button class="ghost-button" @click="exportMap">导出</button>
       </div>
     </header>
 
@@ -291,7 +291,7 @@ loadPreset(activePreset.value)
                 <path d="M 1 0 L 0 0 0 1" fill="none" stroke="rgba(148,163,184,.2)" stroke-width=".035" />
               </pattern>
             </defs>
-            <rect width="100%" height="100%" fill="#0d1428" />
+            <rect width="100%" height="100%" fill="#f7f7f9" />
             <rect width="100%" height="100%" fill="url(#grid)" />
 
             <rect
@@ -302,7 +302,7 @@ loadPreset(activePreset.value)
               :y="node.rect.y"
               :width="node.rect.width"
               :height="node.rect.height"
-              fill="rgba(56,189,248,.23)"
+              fill="rgba(0,122,255,.14)"
             />
             <rect
               v-for="cell in obstacleCells"
@@ -312,8 +312,8 @@ loadPreset(activePreset.value)
               width=".84"
               height=".84"
               rx=".12"
-              fill="#334155"
-              stroke="#64748b"
+              fill="#8e8e93"
+              stroke="#636366"
               stroke-width=".06"
             />
             <g v-if="showQuadTree" class="quadtree-lines">
@@ -325,13 +325,13 @@ loadPreset(activePreset.value)
                 :width="node.rect.width"
                 :height="node.rect.height"
                 fill="none"
-                :stroke="node.state === 'blocked' ? 'rgba(248,113,113,.28)' : 'rgba(129,140,248,.72)'"
+                :stroke="node.state === 'blocked' ? 'rgba(255,59,48,.24)' : 'rgba(0,122,255,.55)'"
                 stroke-width=".075"
               />
             </g>
-            <polyline v-if="pathPoints" :points="pathPoints" fill="none" stroke="#facc15" stroke-width=".22" stroke-linecap="round" stroke-linejoin="round" />
-            <circle :cx="start.x + .5" :cy="start.y + .5" r=".34" fill="#34d399" stroke="#d1fae5" stroke-width=".12" />
-            <circle :cx="goal.x + .5" :cy="goal.y + .5" r=".34" fill="#fb7185" stroke="#ffe4e6" stroke-width=".12" />
+            <polyline v-if="pathPoints" :points="pathPoints" fill="none" stroke="#ff9f0a" stroke-width=".22" stroke-linecap="round" stroke-linejoin="round" />
+            <circle :cx="start.x + .5" :cy="start.y + .5" r=".34" fill="#34c759" stroke="#ffffff" stroke-width=".12" />
+            <circle :cx="goal.x + .5" :cy="goal.y + .5" r=".34" fill="#ff3b30" stroke="#ffffff" stroke-width=".12" />
           </svg>
         </div>
 
@@ -377,8 +377,8 @@ loadPreset(activePreset.value)
     </section>
 
     <footer>
-      <span>QuadPath Lab · deterministic experiments, no backend required</span>
-      <span>所有计算均在浏览器本地完成</span>
+      <span>QuadPath Lab</span>
+      <span>所有计算均在本地完成</span>
     </footer>
   </main>
 </template>
