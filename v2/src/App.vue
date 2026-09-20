@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import PlaybackControls from './components/PlaybackControls.vue'
 import QuadTreeInspector from './components/QuadTreeInspector.vue'
+import QuadTreeTopologyModal from './components/QuadTreeTopologyModal.vue'
 import SelectControl from './components/SelectControl.vue'
 import SpeedSelect from './components/SpeedSelect.vue'
 import { buildLeafGraph, buildQuadTree, collectLeaves, findLeaf, findNode } from './core/quadtree'
@@ -37,6 +38,7 @@ const isPlaying = ref(false)
 const playbackSpeed = ref<(typeof playbackSpeeds)[number]>(1)
 const selectedTreeNodeId = ref('q0')
 const insightTab = ref<'tree' | 'results'>('tree')
+const topologyOpen = ref(false)
 let playbackTimer: number | undefined
 
 const tree = computed(() => buildQuadTree(columns.value, rows.value, blocked.value))
@@ -515,6 +517,7 @@ loadPreset(activePreset.value)
           compact
           embedded
           @select="selectTreeNode"
+          @open-topology="topologyOpen = true"
         />
 
         <section v-else class="side-results">
@@ -557,4 +560,12 @@ loadPreset(activePreset.value)
       <span>所有计算均在本地完成</span>
     </footer>
   </main>
+
+  <QuadTreeTopologyModal
+    v-if="topologyOpen"
+    :root="tree"
+    :selected-id="selectedTreeNode.id"
+    @select="selectTreeNode"
+    @close="topologyOpen = false"
+  />
 </template>

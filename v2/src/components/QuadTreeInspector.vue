@@ -12,6 +12,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   select: [id: string]
+  openTopology: []
 }>()
 
 const focusId = ref(props.root.id)
@@ -79,7 +80,10 @@ watch([() => props.root, () => props.selectedId], syncFocusToSelection, { immedi
     <header class="inspector-header">
       <div>
         <div class="eyebrow">空间结构</div>
-        <h2>四叉树观察器</h2>
+        <div class="title-row">
+          <h2>四叉树观察器</h2>
+          <button class="topology-button" @click="emit('openTopology')">拓扑图 <span>↗</span></button>
+        </div>
         <p>点击地图可定位到对应叶节点；点击树节点会反向高亮它覆盖的地图区域。</p>
       </div>
       <div class="tree-summary">
@@ -188,6 +192,10 @@ watch([() => props.root, () => props.selectedId], syncFocusToSelection, { immedi
 
 h2, h3, p { margin: 0; }
 h2 { font-size: 21px; letter-spacing: -0.025em; }
+.title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.topology-button { flex: none; border: 0; border-radius: 8px; background: #e8e8ed; padding: 6px 9px; color: #1d1d1f; font-size: 10px; cursor: pointer; }
+.topology-button span { color: var(--tertiary); }
+.topology-button:hover { background: #dedee3; }
 .inspector-header p { margin-top: 6px; color: var(--secondary); font-size: 12px; }
 
 .tree-summary { display: flex; gap: 18px; flex: none; }
@@ -349,6 +357,7 @@ h2 { font-size: 21px; letter-spacing: -0.025em; }
 }
 
 .compact .inspector-header h2 { font-size: 17px; }
+.compact .inspector-header > div:first-child { width: 100%; }
 .compact .inspector-header p { display: none; }
 .compact .tree-summary { width: 100%; gap: 0; justify-content: space-between; }
 .compact .tree-summary span { text-align: left; }
