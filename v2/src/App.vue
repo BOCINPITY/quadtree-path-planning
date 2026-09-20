@@ -78,6 +78,36 @@ function loadPreset(id: string) {
   clearResults()
 }
 
+function updateGridSize(axis: 'columns' | 'rows', event: Event) {
+  const value = Number((event.target as HTMLInputElement).value)
+  const nextColumns = axis === 'columns' ? Math.min(64, Math.max(8, value)) : columns.value
+  const nextRows = axis === 'rows' ? Math.min(40, Math.max(8, value)) : rows.value
+
+  columns.value = nextColumns
+  rows.value = nextRows
+  blocked.value = new Set([...blocked.value].filter((key) => {
+    const [x, y] = key.split(',').map(Number)
+    return x < nextColumns && y < nextRows
+  }))
+  start.value = {
+    x: Math.min(start.value.x, nextColumns - 1),
+    y: Math.min(start.value.y, nextRows - 1),
+  }
+  goal.value = {
+    x: Math.min(goal.value.x, nextColumns - 1),
+    y: Math.min(goal.value.y, nextRows - 1),
+  }
+
+  if (cellKey(start.value.x, start.value.y) === cellKey(goal.value.x, goal.value.y)) {
+    goal.value = { x: nextColumns - 1, y: nextRows - 1 }
+  }
+  blocked.value.delete(cellKey(start.value.x, start.value.y))
+  blocked.value.delete(cellKey(goal.value.x, goal.value.y))
+  blocked.value = new Set(blocked.value)
+  activePreset.value = ''
+  clearResults()
+}
+
 function clearResults() {
   stopPlayback()
   results.value = { 'A*': null, Dijkstra: null }
@@ -236,6 +266,21 @@ loadPreset(activePreset.value)
             <option v-for="preset in presets" :key="preset.id" :value="preset.id">{{ preset.name }}</option>
           </select>
           <p class="hint">{{ presets.find((item) => item.id === activePreset)?.description ?? '自定义导入地图' }}</p>
+        </section>
+
+        <section>
+          <div class="section-label">网格尺寸</div>
+          <label class="size-control">
+            <span>列</span>
+            <input :value="columns" type="range" min="8" max="64" step="1" @input="updateGridSize('columns', $event)" />
+            <output>{{ columns }}</output>
+          </label>
+          <label class="size-control">
+            <span>行</span>
+            <input :value="rows" type="range" min="8" max="40" step="1" @input="updateGridSize('rows', $event)" />
+            <output>{{ rows }}</output>
+          </label>
+          <p class="grid-summary">共 {{ columns * rows }} 个单元格</p>
         </section>
 
         <section>
