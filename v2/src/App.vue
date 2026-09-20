@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import PlaybackControls from './components/PlaybackControls.vue'
 import QuadTreeInspector from './components/QuadTreeInspector.vue'
+import SelectControl from './components/SelectControl.vue'
 import SpeedSelect from './components/SpeedSelect.vue'
 import { buildLeafGraph, buildQuadTree, collectLeaves, findLeaf, findNode } from './core/quadtree'
 import { searchPath } from './core/pathfinding'
@@ -16,6 +17,7 @@ const MAX_COLUMNS = 128
 const MAX_ROWS = 80
 const PLAYBACK_INTERVAL = 55
 const playbackSpeeds = [0.5, 1, 2, 4] as const
+const presetOptions = presets.map((preset) => ({ value: preset.id, label: preset.name }))
 
 const activePreset = ref(presets[0].id)
 const columns = ref(32)
@@ -94,6 +96,11 @@ function loadPreset(id: string) {
   goal.value = { ...preset.goal }
   clearResults()
   inspectPoint(start.value)
+}
+
+function selectPreset(id: string) {
+  activePreset.value = id
+  loadPreset(id)
 }
 
 function updateGridSize(axis: 'columns' | 'rows', event: Event) {
@@ -328,9 +335,7 @@ loadPreset(activePreset.value)
       <aside class="panel controls">
         <section>
           <div class="section-label">测试场景</div>
-          <select v-model="activePreset" @change="loadPreset(activePreset)">
-            <option v-for="preset in presets" :key="preset.id" :value="preset.id">{{ preset.name }}</option>
-          </select>
+          <SelectControl :model-value="activePreset" :options="presetOptions" label="测试场景" @update:model-value="selectPreset" />
           <p class="hint">{{ presets.find((item) => item.id === activePreset)?.description ?? '自定义导入地图' }}</p>
         </section>
 
