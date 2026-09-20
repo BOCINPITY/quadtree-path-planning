@@ -38,7 +38,7 @@
   --background: #0d0d0f;
   --primary: #f5f5f7;
   --surface: rgba(28, 28, 30, 0.92);
-  --surface-solid: #2c2c2e;
+  --surface-solid: #48484a;
   --surface-muted: rgba(28, 28, 30, 0.82);
   --control: #2c2c2e;
   --control-hover: #3a3a3c;
@@ -692,6 +692,15 @@ select,
 :root[data-theme='dark'] .visited-cell { fill: rgba(10, 132, 255, 0.22); }
 :root[data-theme='dark'] .search-frontier { fill: rgba(10, 132, 255, 0.25); stroke: rgba(10, 132, 255, 0.92); }
 :root[data-theme='dark'] .algorithm-card.selected { border-color: rgba(10, 132, 255, 0.5); box-shadow: 0 8px 28px rgba(10, 132, 255, 0.12); }
+
+/* Dark mode needs a clearly lighter chip: --surface-solid alone is too close to --control. */
+:root[data-theme='dark'] .language-switch button.active,
+:root[data-theme='dark'] .tool-grid button.active,
+:root[data-theme='dark'] .segmented button.active,
+:root[data-theme='dark'] .insight-tabs button.active {
+  background: #636366;
+  color: #ffffff;
+}
 
 /* Scoped component internals: global theme hooks intentionally cross component boundaries. */
 :root[data-theme='dark'] .apple-menu {
